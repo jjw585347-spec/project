@@ -1,19 +1,49 @@
 import { useEffect, useState } from 'react'
 
+// نمایش قیمت با جداکننده هزارگان و اعداد فارسی
+function formatPrice(price) {
+  return Number(price).toLocaleString('fa-IR')
+}
+
 function App() {
-  const [message, setMessage] = useState('در حال گرفتن پیام از بک اند...')
+  const [services, setServices] = useState([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    // گرفتن پیام از آدرس تست بک اند
-    fetch('/api/test')
+    // گرفتن لیست خدمات از بک اند
+    fetch('/api/services')
       .then((response) => response.json())
-      .then((data) => setMessage(data.message))
-      .catch(() => setMessage('خطا: بک اند در دسترس نیست. آیا بک اند را اجرا کرده‌اید؟'))
+      .then((data) => setServices(data))
+      .catch(() => setError('خطا در گرفتن لیست خدمات'))
   }, [])
 
   return (
-    <div dir="rtl" style={{ textAlign: 'center', marginTop: '100px', fontSize: '24px' }}>
-      <h1>{message}</h1>
+    <div className="page" dir="rtl">
+      <header className="header">
+        <div className="logo">پیرایش عارف</div>
+      </header>
+
+      <main className="main">
+        <h1 className="title">خدمات ما</h1>
+
+        {error && <p className="error">{error}</p>}
+
+        <div className="cards">
+          {services.map((service) => (
+            <div className="card" key={service.id}>
+              <h2 className="card-name">{service.name}</h2>
+              <div className="card-row">
+                <span>قیمت</span>
+                <strong>{formatPrice(service.price)} تومان</strong>
+              </div>
+              <div className="card-row">
+                <span>مدت زمان</span>
+                <strong>{Number(service.duration).toLocaleString('fa-IR')} دقیقه</strong>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
     </div>
   )
 }

@@ -1,10 +1,14 @@
 <?php
 
+use App\Models\Service;
 use Illuminate\Support\Facades\Route;
 
-// آدرس تست: http://localhost:8000/api/test
-Route::get('/test', function () {
-    return response()->json([
-        'message' => 'سلام من بک اند هستم و به درستی کار میکنم',
-    ], 200, [], JSON_UNESCAPED_UNICODE);
+// لیست خدمات: http://localhost:8000/api/services
+Route::get('/services', function () {
+    return response()->json(
+        Service::orderBy('id')->get(['id', 'name', 'price', 'duration']),
+        200,
+        [],
+        JSON_UNESCAPED_UNICODE
+    );
 });
