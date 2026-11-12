@@ -10,6 +10,15 @@ function toPersianDigits(val) {
   return String(val).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d])
 }
 
+// گرفتن تاریخ امروز به فرمت YYYY-MM-DD
+function getTodayIsoDate() {
+  const now = new Date()
+  const gy = now.getFullYear()
+  const gm = String(now.getMonth() + 1).padStart(2, '0')
+  const gd = String(now.getDate()).padStart(2, '0')
+  return `${gy}-${gm}-${gd}`
+}
+
 const JALALI_MONTHS = [
   'فروردین',
   'اردیبهشت',
@@ -135,7 +144,7 @@ function generateTimeSlots() {
 
 const TIME_SLOTS = generateTimeSlots()
 
-function JalaliDatePicker({ value, onChange }) {
+function JalaliDatePicker({ id = 'appointmentDate', value, onChange }) {
   const now = new Date()
   const [todayJy, todayJm, todayJd] = gregorianToJalali(
     now.getFullYear(),
@@ -218,7 +227,7 @@ function JalaliDatePicker({ value, onChange }) {
   return (
     <div className="jalali-datepicker" ref={containerRef}>
       <input
-        id="appointmentDate"
+        id={id}
         type="text"
         readOnly
         value={value ? formatGregorianToJalaliDisplay(value) : ''}
@@ -284,11 +293,22 @@ function JalaliDatePicker({ value, onChange }) {
 }
 
 function App() {
+  // صفحات: 'role-select' | 'customer-login' | 'customer-register' | 'home' | 'booking' | 'owner'
+  const [page, setPage] = useState('role-select')
+
   const [services, setServices] = useState([])
   const [error, setError] = useState('')
-  const [page, setPage] = useState('home') // 'home' | 'booking'
 
-  // وضعیت فرم رزرو
+  // اطلاعات مشتری واردشده (از دیتابیس)
+  const [loggedInCustomer, setLoggedInCustomer] = useState(null)
+
+  // وضعیت فرم ورود / ایجاد حساب مشتری
+  const [authName, setAuthName] = useState('')
+  const [authPhone, setAuthPhone] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authSubmitting, setAuthSubmitting] = useState(false)
+
+  // وضعیت فرم رزرو نوبت
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [serviceId, setServiceId] = useState('')
@@ -297,6 +317,13 @@ function App() {
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [savedAppointment, setSavedAppointment] = useState(null)
+
+  // وضعیت صفحه صاحب آرایشگاه (صفحه سوم)
+  const [ownerDate, setOwnerDate] = useState(getTodayIsoDate)
+  const [ownerAppointments, setOwnerAppointments] = useState([])
+  const [ownerLoading, setOwnerLoading] = useState(false)
+  const [ownerError, setOwnerError] = useState('')
+  const [cancellingId, setCancellingId] = useState(null)
 
   useEffect(() => {
     // گرفتن لیست خدمات از بک اند
@@ -311,18 +338,196 @@ function App() {
       .catch(() => setError('خطا در گرفتن لیست خدمات'))
   }, [])
 
+  // دریافت لیست نوبت‌های روز انتخاب‌شده در صفحه صاحب آرایشگاه
+  useEffect(() => {
+    if (page !== 'owner' || !ownerDate) return
+
+    setOwnerLoading(true)
+    setOwnerError('')
+
+    fetch(`/api/appointments?date=${encodeURIComponent(ownerDate)}`)
+      .then(async (response) => {
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.message || 'خطا در دریافت لیست نوبت‌ها')
+        }
+        return data
+      })
+      .then((data) => {
+        setOwnerAppointments(data.appointments || [])
+      })
+      .catch((err) => {
+        setOwnerError(err.message || 'خطا در دریافت لیست نوبت‌ها')
+      })
+      .finally(() => {
+        setOwnerLoading(false)
+      })
+  }, [page, ownerDate])
+
+  // کلیک روی لوگو یا دکمه برگشت به صفحه اصلی
+  function handleLogoClick() {
+    if (page === 'booking') {
+      setPage('home')
+    } else {
+      setPage('role-select')
+    }
+  }
+
+  function handleBackToMainPage() {
+    if (page === 'booking') {
+      setPage('home')
+    } else {
+      setPage('role-select')
+    }
+  }
+
+  // باز کردن صفحه ورود مشتری (پیش‌فرض روی حالت ورود)
+  function handleSelectCustomerRole() {
+    setAuthName('')
+    setAuthPhone('')
+    setAuthError('')
+    setPage('customer-login')
+  }
+
+  // رفتن به صفحه ایجاد حساب مشتری
+  function handleGoToRegister() {
+    setAuthError('')
+    setPage('customer-register')
+  }
+
+  // باز کردن صفحه صاحب آرایشگاه
+  function handleSelectOwnerRole() {
+    setOwnerDate(getTodayIsoDate())
+    setOwnerError('')
+    setPage('owner')
+  }
+
+  // ارسال فرم ورود مشتری
+  function handleCustomerLogin(e) {
+    e.preventDefault()
+    setAuthError('')
+
+    if (!authName.trim() || !authPhone.trim()) {
+      setAuthError('لطفاً نام و شماره موبایل خود را وارد کنید.')
+      return
+    }
+
+    setAuthSubmitting(true)
+
+    fetch('/api/customers/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        name: authName,
+        phone: authPhone,
+      }),
+    })
+      .then(async (response) => {
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.message || 'خطا در ورود به حساب')
+        }
+        return data
+      })
+      .then((data) => {
+        setLoggedInCustomer(data.customer)
+        setCustomerName(data.customer.name)
+        setCustomerPhone(data.customer.phone)
+        setPage('home')
+      })
+      .catch((err) => {
+        setAuthError(err.message || 'خطا در ورود به حساب')
+      })
+      .finally(() => {
+        setAuthSubmitting(false)
+      })
+  }
+
+  // ارسال فرم ایجاد حساب مشتری
+  function handleCustomerRegister(e) {
+    e.preventDefault()
+    setAuthError('')
+
+    if (!authName.trim() || !authPhone.trim()) {
+      setAuthError('لطفاً نام و شماره موبایل خود را وارد کنید.')
+      return
+    }
+
+    setAuthSubmitting(true)
+
+    fetch('/api/customers/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        name: authName,
+        phone: authPhone,
+      }),
+    })
+      .then(async (response) => {
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.message || 'خطا در ایجاد حساب')
+        }
+        return data
+      })
+      .then((data) => {
+        setLoggedInCustomer(data.customer)
+        setCustomerName(data.customer.name)
+        setCustomerPhone(data.customer.phone)
+        setPage('home')
+      })
+      .catch((err) => {
+        setAuthError(err.message || 'خطا در ایجاد حساب')
+      })
+      .finally(() => {
+        setAuthSubmitting(false)
+      })
+  }
+
+  // باز کردن صفحه رزرو نوبت و پر کردن خودکار نام و شماره از دیتابیس
   function handleOpenBooking() {
     setFormError('')
     setSavedAppointment(null)
+
+    if (loggedInCustomer?.id) {
+      // ابتدا مقدار فعلی دیتابیس را قرار می‌دهیم و همزمان آخرین مقدار را از دیتابیس می‌گیریم
+      setCustomerName(loggedInCustomer.name)
+      setCustomerPhone(loggedInCustomer.phone)
+
+      fetch(`/api/customers/${loggedInCustomer.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.customer) {
+            setLoggedInCustomer(data.customer)
+            setCustomerName(data.customer.name)
+            setCustomerPhone(data.customer.phone)
+          }
+        })
+        .catch(() => {})
+    }
+
     setPage('booking')
   }
 
+  // ثبت نوبت توسط مشتری
   function handleSubmit(e) {
     e.preventDefault()
     setFormError('')
     setSavedAppointment(null)
 
-    if (!customerName.trim() || !customerPhone.trim() || !serviceId || !appointmentDate || !appointmentTime) {
+    if (
+      !customerName.trim() ||
+      !customerPhone.trim() ||
+      !serviceId ||
+      !appointmentDate ||
+      !appointmentTime
+    ) {
       setFormError('لطفاً همه فیلدها را کامل کنید.')
       return
     }
@@ -352,8 +557,6 @@ function App() {
       })
       .then((data) => {
         setSavedAppointment(data.appointment)
-        setCustomerName('')
-        setCustomerPhone('')
       })
       .catch((err) => {
         setFormError(err.message || 'خطا در ثبت نوبت')
@@ -363,16 +566,174 @@ function App() {
       })
   }
 
+  // لغو رزرو توسط صاحب آرایشگاه
+  function handleCancelAppointment(appointmentId) {
+    setCancellingId(appointmentId)
+    setOwnerError('')
+
+    fetch(`/api/appointments/${appointmentId}/cancel`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+    })
+      .then(async (response) => {
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.message || 'خطا در لغو نوبت')
+        }
+        return data
+      })
+      .then((data) => {
+        setOwnerAppointments((prev) =>
+          prev.map((item) => (item.id === appointmentId ? data.appointment : item))
+        )
+      })
+      .catch((err) => {
+        setOwnerError(err.message || 'خطا در لغو نوبت')
+      })
+      .finally(() => {
+        setCancellingId(null)
+      })
+  }
+
   return (
     <div className="page" dir="rtl">
       <header className="header">
-        <div className="logo" onClick={() => setPage('home')} style={{ cursor: 'pointer' }}>
+        <div className="logo" onClick={handleLogoClick} style={{ cursor: 'pointer' }}>
           پیرایش عارف
         </div>
       </header>
 
       <main className="main">
-        {page === 'home' ? (
+        {/* صفحه اول: انتخاب ورود به عنوان مشتری یا صاحب آرایشگاه */}
+        {page === 'role-select' && (
+          <div className="role-select-container">
+            <h1 className="title">خوش آمدید</h1>
+            <p className="subtitle">لطفاً نحوه ورود خود را انتخاب کنید</p>
+            <div className="role-buttons">
+              <button
+                type="button"
+                className="primary-btn role-btn"
+                onClick={handleSelectCustomerRole}
+              >
+                ورود به عنوان مشتری
+              </button>
+              <button
+                type="button"
+                className="secondary-btn role-btn"
+                onClick={handleSelectOwnerRole}
+              >
+                ورود به عنوان صاحب آرایشگاه
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* صفحه ورود مشتری (حالت پیش‌فرض بعد از کلیک روی ورود به عنوان مشتری) */}
+        {page === 'customer-login' && (
+          <div className="booking-container">
+            <h1 className="title">ورود مشتری</h1>
+
+            <form className="booking-form" onSubmit={handleCustomerLogin}>
+              <div className="form-group">
+                <label htmlFor="loginName">نام و نام خانوادگی</label>
+                <input
+                  id="loginName"
+                  type="text"
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  placeholder="نامی که قبلاً ثبت کرده‌اید را وارد کنید"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="loginPhone">شماره موبایل</label>
+                <input
+                  id="loginPhone"
+                  type="tel"
+                  value={authPhone}
+                  onChange={(e) => setAuthPhone(e.target.value)}
+                  placeholder="مثلاً 09123456789"
+                  required
+                />
+              </div>
+
+              {authError && <p className="error">{authError}</p>}
+
+              <div className="auth-actions">
+                <button type="submit" className="primary-btn full-btn" disabled={authSubmitting}>
+                  {authSubmitting ? 'در حال بررسی...' : 'ثبت'}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn full-btn"
+                  onClick={handleGoToRegister}
+                >
+                  ایجاد حساب
+                </button>
+              </div>
+            </form>
+
+            <div className="page-bottom-nav">
+              <button type="button" className="secondary-btn" onClick={handleBackToMainPage}>
+                برگشت به صفحه اصلی
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* صفحه ایجاد حساب مشتری (بدون دکمه ایجاد حساب) */}
+        {page === 'customer-register' && (
+          <div className="booking-container">
+            <h1 className="title">ایجاد حساب مشتری</h1>
+
+            <form className="booking-form" onSubmit={handleCustomerRegister}>
+              <div className="form-group">
+                <label htmlFor="registerName">نام و نام خانوادگی</label>
+                <input
+                  id="registerName"
+                  type="text"
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  placeholder="نام خود را وارد کنید"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="registerPhone">شماره موبایل</label>
+                <input
+                  id="registerPhone"
+                  type="tel"
+                  value={authPhone}
+                  onChange={(e) => setAuthPhone(e.target.value)}
+                  placeholder="مثلاً 09123456789"
+                  required
+                />
+              </div>
+
+              {authError && <p className="error">{authError}</p>}
+
+              <div className="auth-actions">
+                <button type="submit" className="primary-btn full-btn" disabled={authSubmitting}>
+                  {authSubmitting ? 'در حال ثبت...' : 'ثبت'}
+                </button>
+              </div>
+            </form>
+
+            <div className="page-bottom-nav">
+              <button type="button" className="secondary-btn" onClick={handleBackToMainPage}>
+                برگشت به صفحه اصلی
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* صفحه اصلی سایت (خدمات ما) */}
+        {page === 'home' && (
           <>
             <h1 className="title">خدمات ما</h1>
 
@@ -399,8 +760,17 @@ function App() {
                 نوبت گیری
               </button>
             </div>
+
+            <div className="page-bottom-nav">
+              <button type="button" className="secondary-btn" onClick={handleBackToMainPage}>
+                برگشت به صفحه اصلی
+              </button>
+            </div>
           </>
-        ) : (
+        )}
+
+        {/* صفحه رزرو نوبت مشتری */}
+        {page === 'booking' && (
           <div className="booking-container">
             <h1 className="title">رزرو نوبت</h1>
 
@@ -448,7 +818,11 @@ function App() {
 
               <div className="form-group">
                 <label htmlFor="appointmentDate">انتخاب روز (شمسی)</label>
-                <JalaliDatePicker value={appointmentDate} onChange={setAppointmentDate} />
+                <JalaliDatePicker
+                  id="appointmentDate"
+                  value={appointmentDate}
+                  onChange={setAppointmentDate}
+                />
               </div>
 
               <div className="form-group">
@@ -473,13 +847,6 @@ function App() {
                 <button type="submit" className="primary-btn" disabled={submitting}>
                   {submitting ? 'در حال ثبت...' : 'ثبت'}
                 </button>
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => setPage('home')}
-                >
-                  بازگشت به صفحه اصلی
-                </button>
               </div>
             </form>
 
@@ -500,7 +867,9 @@ function App() {
                 </div>
                 <div className="summary-row">
                   <span>روز نوبت:</span>
-                  <strong>{formatGregorianToJalaliDisplay(savedAppointment.appointment_date)}</strong>
+                  <strong>
+                    {formatGregorianToJalaliDisplay(savedAppointment.appointment_date)}
+                  </strong>
                 </div>
                 <div className="summary-row">
                   <span>ساعت نوبت:</span>
@@ -508,6 +877,102 @@ function App() {
                 </div>
               </div>
             )}
+
+            <div className="page-bottom-nav">
+              <button type="button" className="secondary-btn" onClick={handleBackToMainPage}>
+                برگشت به صفحه اصلی
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* صفحه سوم: صفحه رزروهای صاحب آرایشگاه */}
+        {page === 'owner' && (
+          <div className="owner-container">
+            <h1 className="title">لیست نوبت‌های آرایشگاه</h1>
+
+            {/* انتخاب روز در بالا سمت راست (پیش‌فرض امروز) */}
+            <div className="owner-toolbar">
+              <div className="owner-date-box">
+                <label htmlFor="ownerDatePicker">انتخاب روز:</label>
+                <JalaliDatePicker
+                  id="ownerDatePicker"
+                  value={ownerDate}
+                  onChange={setOwnerDate}
+                />
+              </div>
+            </div>
+
+            {ownerError && <p className="error">{ownerError}</p>}
+
+            <div className="owner-list-card">
+              <div className="owner-list-header">
+                <span>نام مشتری</span>
+                <span>شماره موبایل</span>
+                <span>خدمت</span>
+                <span>ساعت</span>
+                <span>وضعیت / عملیات</span>
+              </div>
+
+              {ownerLoading ? (
+                <p className="owner-empty">در حال بارگذاری نوبت‌ها...</p>
+              ) : ownerAppointments.length === 0 ? (
+                <p className="owner-empty">
+                  برای تاریخ {formatGregorianToJalaliDisplay(ownerDate)} هیچ نوبتی ثبت نشده است.
+                </p>
+              ) : (
+                <div className="owner-rows">
+                  {ownerAppointments.map((item) => {
+                    const isCancelled = item.status === 'cancelled'
+                    return (
+                      <div
+                        key={item.id}
+                        className={`owner-row ${isCancelled ? 'owner-row-cancelled' : ''}`}
+                      >
+                        <div className="owner-cell owner-cell-name">
+                          <span className="mobile-label">نام مشتری:</span>
+                          <strong>{item.customer_name}</strong>
+                        </div>
+                        <div className="owner-cell owner-cell-phone">
+                          <span className="mobile-label">شماره موبایل:</span>
+                          <span>{toPersianDigits(item.customer_phone)}</span>
+                        </div>
+                        <div className="owner-cell owner-cell-service">
+                          <span className="mobile-label">خدمت:</span>
+                          <span>{item.service?.name || '-'}</span>
+                        </div>
+                        <div className="owner-cell owner-cell-time">
+                          <span className="mobile-label">ساعت:</span>
+                          <span className="time-badge">
+                            {toPersianDigits(item.appointment_time)}
+                          </span>
+                        </div>
+                        <div className="owner-cell owner-cell-action">
+                          {isCancelled ? (
+                            <span className="cancelled-badge">لغو شده</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="cancel-btn"
+                              disabled={cancellingId === item.id}
+                              onClick={() => handleCancelAppointment(item.id)}
+                            >
+                              {cancellingId === item.id ? 'در حال لغو...' : 'لغو رزرو'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="page-bottom-nav">
+              <button type="button" className="secondary-btn" onClick={handleBackToMainPage}>
+                برگشت به صفحه اصلی
+              </button>
+            </div>
           </div>
         )}
       </main>

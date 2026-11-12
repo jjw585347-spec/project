@@ -14,6 +14,7 @@ class Appointment extends Model
         'service_id',
         'appointment_date',
         'appointment_time',
+        'status',
     ];
 
     public function service(): BelongsTo

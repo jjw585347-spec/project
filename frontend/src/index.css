@@ -28,6 +28,7 @@ body {
   border: 2px solid #222;
   border-radius: 8px;
   padding: 4px 16px;
+  user-select: none;
 }
 
 .main {
@@ -39,13 +40,50 @@ body {
 .title {
   text-align: center;
   font-size: 36px;
+  margin: 0 0 24px;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 24px;
+  color: #555;
   margin: 0 0 32px;
 }
 
 .error {
   text-align: center;
   color: #c00;
-  font-size: 22px;
+  background: #fff0f0;
+  border: 1px solid #f5c2c2;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 20px;
+  margin: 12px 0;
+}
+
+/* صفحه اول انتخاب نقش (مشتری یا صاحب آرایشگاه) */
+.role-select-container {
+  max-width: 480px;
+  margin: 40px auto;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 14px;
+  padding: 40px 32px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  text-align: center;
+}
+
+.role-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.role-btn {
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 24px;
+  font-weight: bold;
 }
 
 /* کارت‌های خدمات */
@@ -118,14 +156,20 @@ body {
   border-radius: 10px;
   padding: 12px 24px;
   font-size: 22px;
+  font-weight: bold;
   cursor: pointer;
+  transition: background 0.2s;
 }
 
 .secondary-btn:hover {
   background: #eee;
 }
 
-/* صفحه و فرم رزرو */
+.full-btn {
+  width: 100%;
+}
+
+/* صفحه و فرم رزرو و ورود */
 .booking-container {
   max-width: 520px;
   margin: 0 auto;
@@ -167,6 +211,20 @@ body {
   margin-top: 24px;
 }
 
+.auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+/* دکمه برگشت به صفحه اصلی در آخر هر صفحه */
+.page-bottom-nav {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+}
+
 /* کادر پیام موفقیت و خلاصه نوبت */
 .success-box {
   margin-top: 28px;
@@ -200,19 +258,24 @@ body {
 .jalali-input {
   width: 100%;
   cursor: pointer;
+  font-size: 20px;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fafafa;
 }
 
 .jalali-popover {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  left: 0;
+  min-width: 300px;
   background: #fff;
   border: 1px solid #ccc;
   border-radius: 10px;
   padding: 14px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
-  z-index: 20;
+  z-index: 30;
 }
 
 .jalali-header {
@@ -301,3 +364,175 @@ body {
   text-decoration: underline;
 }
 
+/* صفحه سوم: لیست نوبت‌های صاحب آرایشگاه */
+.owner-container {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* نوار بالا سمت راست برای انتخاب روز */
+.owner-toolbar {
+  display: flex;
+  justify-content: flex-start; /* در حالت راست‌چین = بالا سمت راست */
+  margin-bottom: 20px;
+}
+
+.owner-date-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.owner-date-box label {
+  font-size: 22px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.owner-date-box .jalali-datepicker {
+  width: 220px;
+}
+
+/* کارت لیست نوبت‌ها */
+.owner-list-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.owner-list-header {
+  display: grid;
+  grid-template-columns: 1.4fr 1.3fr 1.6fr 0.9fr 1.2fr;
+  background: #222;
+  color: #fff;
+  padding: 16px 24px;
+  font-size: 22px;
+  font-weight: bold;
+  text-align: center;
+  align-items: center;
+}
+
+.owner-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.owner-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.3fr 1.6fr 0.9fr 1.2fr;
+  padding: 18px 24px;
+  font-size: 21px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+  text-align: center;
+  transition: background 0.15s;
+}
+
+.owner-row:last-child {
+  border-bottom: none;
+}
+
+.owner-row:hover {
+  background: #fafafa;
+}
+
+.owner-row-cancelled {
+  background: #fdf2f2;
+  color: #777;
+}
+
+.owner-row-cancelled:hover {
+  background: #fbe9e9;
+}
+
+.owner-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mobile-label {
+  display: none;
+  font-weight: bold;
+  color: #555;
+}
+
+.time-badge {
+  display: inline-block;
+  background: #f0f4ff;
+  color: #1a3a8a;
+  border: 1px solid #c5d4f7;
+  border-radius: 8px;
+  padding: 4px 14px;
+  font-weight: bold;
+  font-size: 21px;
+}
+
+.cancel-btn {
+  background: #d32f2f;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 19px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #b71c1c;
+}
+
+.cancel-btn:disabled {
+  background: #e57373;
+  cursor: not-allowed;
+}
+
+.cancelled-badge {
+  display: inline-block;
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 19px;
+  font-weight: bold;
+}
+
+.owner-empty {
+  text-align: center;
+  font-size: 22px;
+  color: #666;
+  padding: 40px 20px;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .owner-list-header {
+    display: none;
+  }
+
+  .owner-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    text-align: right;
+    padding: 16px;
+  }
+
+  .owner-cell {
+    justify-content: space-between;
+  }
+
+  .mobile-label {
+    display: inline;
+  }
+}
