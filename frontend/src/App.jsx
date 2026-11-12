@@ -601,9 +601,9 @@ function App() {
   return (
     <div className="page" dir="rtl">
       <header className="header">
-        <div className="logo" onClick={handleLogoClick} style={{ cursor: 'pointer' }}>
+        <button type="button" className="secondary-btn logo-btn" onClick={handleLogoClick}>
           پیرایش عارف
-        </div>
+        </button>
       </header>
 
       <main className="main">
