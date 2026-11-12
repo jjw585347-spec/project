@@ -20,12 +20,14 @@
 
 ## اجرای بک اند
 
-یک ترمینال باز کنید:
+یک ترمینال (PowerShell) باز کنید:
 
-```bash
+```powershell
 cd backend
-php artisan serve
+& "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\PHP.PHP.NTS.8.4_Microsoft.Winget.Source_8wekyb3d8bbwe\php.exe" artisan serve
 ```
+
+تست لیست خدمات در مرورگر: http://localhost:8000/api/services
 
 ---
 
