@@ -1,8 +1,18 @@
 :root {
-  --navy-bg: rgb(4, 30, 73);
   --google-green-900-rgb: 13, 101, 45;
   --green-primary: rgb(var(--google-green-900-rgb));
-  --white: #ffffff;
+  --green-hover: #0a4f22;
+  --bg-page: #ffffff;
+  --surface-white: #ffffff;
+  --surface-subtle: #f8fafc;
+  --text-dark: #111827;
+  --text-muted: #4b5563;
+  --success-bg: #ecfdf5;
+  --success-text: #065f46;
+  --error-bg: #fef2f2;
+  --error-text: #991b1b;
+  --danger-btn: #dc2626;
+  --danger-hover: #b91c1c;
 }
 
 /* فونت B Nazanin و راست‌چین بودن در تمام صفحات و حالت‌ها */
@@ -19,8 +29,8 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background-color: rgb(4, 30, 73);
-  color: #ffffff;
+  background-color: var(--bg-page);
+  color: var(--text-dark);
   direction: rtl;
   text-align: right;
   overflow-x: hidden;
@@ -37,40 +47,40 @@ option {
 
 .page {
   min-height: 100vh;
-  background-color: rgb(4, 30, 73);
-  color: #ffffff;
+  background-color: var(--bg-page);
+  color: var(--text-dark);
   direction: rtl;
   text-align: right;
 }
 
-/* هدر بالای سایت - بدون خط اضافی */
+/* هدر بالای سایت - سفید و بدون خط اضافی */
 .header {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  padding: 20px 32px;
-  background-color: rgb(4, 30, 73);
+  padding: 22px 36px;
+  background-color: var(--bg-page);
 }
 
 .main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 20px 48px;
+  padding: 16px 20px 56px;
 }
 
-/* عناوین روی پس‌زمینه سرمه‌ای با خوانایی بالا */
+/* عناوین با خوانایی عالی روی پس‌زمینه سفید */
 .title {
   text-align: center;
   font-size: 38px;
   font-weight: bold;
-  color: #ffffff;
+  color: var(--text-dark);
   margin: 0 0 24px;
 }
 
 .subtitle {
   text-align: center;
   font-size: 24px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-muted);
   margin: 0 0 32px;
 }
 
@@ -83,15 +93,15 @@ option {
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 12px;
-  padding: 12px 32px;
+  border-radius: 14px;
+  padding: 13px 34px;
   font-size: 23px;
   font-weight: bold;
   cursor: pointer;
   text-align: center;
   user-select: none;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.09);
+  transition: transform 0.18s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .primary-btn:hover,
@@ -99,8 +109,7 @@ option {
 .logo-btn:hover,
 .cancel-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
-  filter: brightness(1.04);
+  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.14);
 }
 
 .primary-btn:active,
@@ -110,10 +119,14 @@ option {
   transform: translateY(0);
 }
 
-/* دکمه‌های سبز: ورود به عنوان مشتری / ثبت / نوبت گیری */
+/* دکمه‌های اصلی سبز: ورود به عنوان مشتری / ثبت / نوبت گیری */
 .primary-btn {
-  background-color: rgb(var(--google-green-900-rgb));
+  background-color: var(--green-primary);
   color: #ffffff;
+}
+
+.primary-btn:hover {
+  background-color: var(--green-hover);
 }
 
 .primary-btn:disabled {
@@ -126,12 +139,18 @@ option {
 .secondary-btn,
 .logo-btn {
   background-color: #ffffff;
-  color: rgb(4, 30, 73);
+  color: var(--text-dark);
+  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.1), 0 0 0 1px rgba(17, 24, 39, 0.06);
+}
+
+.secondary-btn:hover,
+.logo-btn:hover {
+  background-color: var(--surface-subtle);
 }
 
 .logo-btn {
   font-size: 28px;
-  padding: 8px 24px;
+  padding: 8px 26px;
 }
 
 .role-btn,
@@ -143,10 +162,14 @@ option {
 
 /* دکمه لغو رزرو در جدول صاحب آرایشگاه */
 .cancel-btn {
-  background-color: #c62828;
+  background-color: var(--danger-btn);
   color: #ffffff;
   padding: 8px 20px;
   font-size: 19px;
+}
+
+.cancel-btn:hover {
+  background-color: var(--danger-hover);
 }
 
 .cancel-btn:disabled {
@@ -163,28 +186,30 @@ option {
 }
 
 .card,
-.owner-list-card {
+.owner-list-card,
+.booking-form,
+.role-select-container {
   background-color: #ffffff;
-  color: rgb(4, 30, 73);
+  color: var(--text-dark);
   border: none;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  border-radius: 18px;
+  box-shadow: 0 8px 28px rgba(17, 24, 39, 0.08), 0 0 0 1px rgba(17, 24, 39, 0.04);
 }
 
 .card {
-  padding: 24px;
+  padding: 26px 24px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 14px 34px rgba(17, 24, 39, 0.12), 0 0 0 1px rgba(13, 101, 45, 0.12);
 }
 
 .card-name {
   font-size: 27px;
   font-weight: bold;
-  color: rgb(4, 30, 73);
+  color: var(--text-dark);
   margin: 0 0 18px;
   text-align: center;
 }
@@ -194,26 +219,37 @@ option {
   justify-content: space-between;
   align-items: center;
   font-size: 21px;
-  padding: 8px 4px;
-  color: rgb(4, 30, 73);
+  padding: 9px 14px;
+  margin-top: 8px;
+  background-color: var(--surface-subtle);
+  border-radius: 10px;
+  color: var(--text-dark);
+}
+
+.card-row span {
+  color: var(--text-muted);
 }
 
 /* ==================== زبان بصری یکپارچه فرم‌ها ==================== */
-.role-select-container,
-.booking-container {
-  max-width: 500px;
-  margin: 20px auto 0;
+.role-select-container {
+  max-width: 480px;
+  margin: 24px auto 0;
+  padding: 36px 32px;
 }
 
 .role-buttons {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+}
+
+.booking-container {
+  max-width: 520px;
+  margin: 12px auto 0;
 }
 
 .booking-form {
-  background: transparent;
-  padding: 8px 0;
+  padding: 32px 28px;
 }
 
 .form-group {
@@ -226,37 +262,38 @@ option {
 .form-group label {
   font-size: 22px;
   font-weight: bold;
-  color: #ffffff;
+  color: var(--text-dark);
   margin-bottom: 8px;
   text-align: right;
 }
 
-/* محل‌های پر کردن فرم رزرو و ورود به رنگ سفید (#ffffff) */
+/* محل‌های پر کردن فرم به رنگ سفید (#ffffff) */
 .form-group input,
 .form-group select,
 .jalali-input {
   width: 100%;
   font-size: 21px;
-  padding: 12px 16px;
+  padding: 13px 16px;
   border: none;
   border-radius: 12px;
   background-color: #ffffff;
-  color: rgb(4, 30, 73);
+  color: var(--text-dark);
   text-align: right;
   direction: rtl;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.05), 0 0 0 1px rgba(17, 24, 39, 0.12);
   outline: none;
+  transition: box-shadow 0.2s ease;
 }
 
 .form-group input::placeholder,
 .jalali-input::placeholder {
-  color: #64748b;
+  color: #9ca3af;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .jalali-input:focus {
-  box-shadow: 0 0 0 3px rgba(13, 101, 45, 0.55), 0 4px 12px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 0 0 2px var(--green-primary), 0 4px 12px rgba(13, 101, 45, 0.12);
 }
 
 .form-actions {
@@ -296,30 +333,30 @@ option {
   border-radius: 14px;
   padding: 16px 20px;
   margin: 18px 0;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.07);
   direction: rtl;
 }
 
-/* پیام خطا: کاملاً قابل تشخیص با تم قرمز خوانا */
+/* پیام خطا */
 .error {
   text-align: center;
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--error-bg);
+  color: var(--error-text);
   font-size: 21px;
   font-weight: bold;
 }
 
-/* پیام موفقیت: کاملاً قابل تشخیص با تم سبز خوانا */
+/* پیام موفقیت */
 .success-box {
   margin-top: 24px;
-  background-color: #dcfce7;
-  color: rgb(var(--google-green-900-rgb));
-  padding: 22px 24px;
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  padding: 24px;
 }
 
 .success-title {
-  margin: 0 0 14px;
-  color: rgb(var(--google-green-900-rgb));
+  margin: 0 0 16px;
+  color: var(--success-text);
   font-size: 26px;
   font-weight: bold;
   text-align: center;
@@ -328,22 +365,13 @@ option {
 .summary-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
   font-size: 21px;
-  padding: 6px 0;
-  color: #064e3b;
-}
-
-.summary-row span {
-  flex-shrink: 0;
-}
-
-.summary-row strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  text-align: left;
+  padding: 8px 12px;
+  margin-top: 6px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  color: var(--success-text);
 }
 
 /* ==================== تقویم شمسی ==================== */
@@ -363,11 +391,11 @@ option {
   width: 310px;
   max-width: 92vw;
   background-color: #ffffff;
-  color: rgb(4, 30, 73);
+  color: var(--text-dark);
   border: none;
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 14px 36px rgba(17, 24, 39, 0.16), 0 0 0 1px rgba(17, 24, 39, 0.06);
   z-index: 50;
 }
 
@@ -381,12 +409,12 @@ option {
 .jalali-month-title {
   font-size: 22px;
   font-weight: bold;
-  color: rgb(4, 30, 73);
+  color: var(--text-dark);
 }
 
 .jalali-nav-btn {
-  background-color: #f1f5f9;
-  color: rgb(4, 30, 73);
+  background-color: var(--surface-subtle);
+  color: var(--text-dark);
   border: none;
   border-radius: 8px;
   padding: 6px 12px;
@@ -405,7 +433,7 @@ option {
   text-align: center;
   font-weight: bold;
   font-size: 18px;
-  color: #475569;
+  color: var(--text-muted);
   margin-bottom: 8px;
 }
 
@@ -416,8 +444,8 @@ option {
 }
 
 .jalali-day-btn {
-  background-color: #f8fafc;
-  color: rgb(4, 30, 73);
+  background-color: var(--surface-subtle);
+  color: var(--text-dark);
   border: none;
   border-radius: 8px;
   padding: 8px 0;
@@ -431,12 +459,13 @@ option {
 }
 
 .jalali-day-btn.today {
-  background-color: #e0f2fe;
+  background-color: #dcfce7;
+  color: var(--green-primary);
   font-weight: bold;
 }
 
 .jalali-day-btn.selected {
-  background-color: rgb(var(--google-green-900-rgb));
+  background-color: var(--green-primary);
   color: #ffffff;
   font-weight: bold;
 }
@@ -449,7 +478,7 @@ option {
 .jalali-today-btn {
   background: none;
   border: none;
-  color: rgb(var(--google-green-900-rgb));
+  color: var(--green-primary);
   font-size: 18px;
   font-weight: bold;
   cursor: pointer;
@@ -476,7 +505,7 @@ option {
 .owner-date-box label {
   font-size: 23px;
   font-weight: bold;
-  color: #ffffff;
+  color: var(--text-dark);
   white-space: nowrap;
 }
 
@@ -489,11 +518,11 @@ option {
   overflow: hidden;
 }
 
-/* هدر لیست نوبت‌ها در صفحه صاحب آرایشگاه به رنگ سبز */
+/* هدر لیست نوبت‌ها به رنگ سبز */
 .owner-list-header {
   display: grid;
   grid-template-columns: 1.4fr 1.3fr 1.6fr 0.9fr 1.2fr;
-  background-color: rgb(var(--google-green-900-rgb));
+  background-color: var(--green-primary);
   color: #ffffff;
   padding: 16px 24px;
   font-size: 22px;
@@ -502,7 +531,7 @@ option {
   align-items: center;
 }
 
-/* بدنه لیست رزروها سفید (#ffffff) و بدون خطوط اضافی */
+/* بدنه لیست نوبت‌ها به رنگ سفید (#ffffff) */
 .owner-rows {
   display: flex;
   flex-direction: column;
@@ -515,19 +544,19 @@ option {
   padding: 18px 24px;
   font-size: 21px;
   background-color: #ffffff;
-  color: rgb(4, 30, 73);
+  color: var(--text-dark);
   align-items: center;
   text-align: center;
   transition: background-color 0.15s ease;
 }
 
 .owner-row:hover {
-  background-color: #f8fafc;
+  background-color: var(--surface-subtle);
 }
 
 .owner-row-cancelled {
   background-color: #fff5f5;
-  color: #64748b;
+  color: #6b7280;
 }
 
 .owner-row-cancelled:hover {
@@ -539,29 +568,18 @@ option {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.owner-cell-name strong,
-.owner-cell-service span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .mobile-label {
   display: none;
   font-weight: bold;
-  color: rgb(4, 30, 73);
-  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
 .time-badge {
   display: inline-block;
-  background-color: #f1f5f9;
-  color: rgb(4, 30, 73);
+  background-color: #ecfdf5;
+  color: var(--green-primary);
   border-radius: 8px;
   padding: 4px 14px;
   font-weight: bold;
@@ -570,8 +588,8 @@ option {
 
 .cancelled-badge {
   display: inline-block;
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--error-bg);
+  color: var(--error-text);
   border-radius: 10px;
   padding: 6px 16px;
   font-size: 19px;
@@ -581,9 +599,9 @@ option {
 .owner-empty {
   text-align: center;
   font-size: 22px;
-  color: rgb(4, 30, 73);
+  color: var(--text-muted);
   background-color: #ffffff;
-  padding: 40px 20px;
+  padding: 44px 20px;
   margin: 0;
 }
 
@@ -604,13 +622,18 @@ option {
   }
 
   .title {
-    font-size: 31px;
+    font-size: 32px;
     margin-bottom: 18px;
   }
 
   .subtitle {
     font-size: 20px;
     margin-bottom: 24px;
+  }
+
+  .role-select-container,
+  .booking-form {
+    padding: 24px 20px;
   }
 
   .cards {
@@ -655,7 +678,6 @@ option {
     width: 100%;
   }
 
-  /* نمایش هدر سبز لیست نوبت‌ها در موبایل به صورت عنوان کارت */
   .owner-list-header {
     grid-template-columns: 1fr;
     padding: 14px 16px;
