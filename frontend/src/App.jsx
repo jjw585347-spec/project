@@ -642,6 +642,7 @@ function App() {
                 <input
                   id="loginName"
                   type="text"
+                  maxLength={40}
                   value={authName}
                   onChange={(e) => setAuthName(e.target.value)}
                   placeholder="نامی که قبلاً ثبت کرده‌اید را وارد کنید"
@@ -696,6 +697,7 @@ function App() {
                 <input
                   id="registerName"
                   type="text"
+                  maxLength={40}
                   value={authName}
                   onChange={(e) => setAuthName(e.target.value)}
                   placeholder="نام خود را وارد کنید"
@@ -780,6 +782,7 @@ function App() {
                 <input
                   id="customerName"
                   type="text"
+                  maxLength={40}
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="نام خود را وارد کنید"

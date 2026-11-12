@@ -328,10 +328,22 @@ option {
 .summary-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
   font-size: 21px;
   padding: 6px 0;
   color: #064e3b;
+}
+
+.summary-row span {
+  flex-shrink: 0;
+}
+
+.summary-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: left;
 }
 
 /* ==================== تقویم شمسی ==================== */
@@ -527,12 +539,23 @@ option {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.owner-cell-name strong,
+.owner-cell-service span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mobile-label {
   display: none;
   font-weight: bold;
   color: rgb(4, 30, 73);
+  flex-shrink: 0;
 }
 
 .time-badge {

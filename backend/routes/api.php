@@ -40,6 +40,17 @@ Route::post('/customers/register', function (Request $request) {
         );
     }
 
+    if (mb_strlen($name) > 40) {
+        return response()->json(
+            [
+                'message' => 'نام واردشده خیلی طولانی است. لطفاً نام را حداکثر تا ۴۰ کاراکتر وارد کنید.',
+            ],
+            422,
+            [],
+            JSON_UNESCAPED_UNICODE
+        );
+    }
+
     // نکته ۳: بررسی منطقی بودن شماره موبایل (۱۱ رقم و شروع با 09)
     if (!preg_match('/^09\d{9}$/', $phone)) {
         return response()->json(
@@ -91,6 +102,17 @@ Route::post('/customers/login', function (Request $request) {
         return response()->json(
             [
                 'message' => 'لطفاً نام و شماره موبایل خود را وارد کنید.',
+            ],
+            422,
+            [],
+            JSON_UNESCAPED_UNICODE
+        );
+    }
+
+    if (mb_strlen($name) > 40) {
+        return response()->json(
+            [
+                'message' => 'نام واردشده خیلی طولانی است. لطفاً نام را حداکثر تا ۴۰ کاراکتر وارد کنید.',
             ],
             422,
             [],
@@ -210,8 +232,20 @@ Route::patch('/appointments/{id}/cancel', function ($id) {
 
 // ثبت نوبت جدید: POST /api/appointments
 Route::post('/appointments', function (Request $request) {
+    $rawName = trim((string) $request->input('customer_name', ''));
+    if (mb_strlen($rawName) > 40) {
+        return response()->json(
+            [
+                'message' => 'ثبت نوبت ناموفق بود: نام واردشده خیلی طولانی است (حداکثر ۴۰ کاراکتر مجاز است).',
+            ],
+            422,
+            [],
+            JSON_UNESCAPED_UNICODE
+        );
+    }
+
     $validated = $request->validate([
-        'customer_name' => ['required', 'string', 'max:255'],
+        'customer_name' => ['required', 'string', 'max:40'],
         'customer_phone' => ['required', 'string'],
         'service_id' => ['required', 'exists:services,id'],
         'appointment_date' => ['required', 'date'],
