@@ -190,3 +190,114 @@ body {
   padding: 8px 0;
   border-top: 1px solid #c8e6c9;
 }
+
+/* تقویم شمسی */
+.jalali-datepicker {
+  position: relative;
+  width: 100%;
+}
+
+.jalali-input {
+  width: 100%;
+  cursor: pointer;
+}
+
+.jalali-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  z-index: 20;
+}
+
+.jalali-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.jalali-month-title {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.jalali-nav-btn {
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.jalali-nav-btn:hover {
+  background: #e0e0e0;
+}
+
+.jalali-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: bold;
+  font-size: 18px;
+  color: #555;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #eee;
+}
+
+.jalali-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.jalali-day-btn {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 8px 0;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.jalali-day-btn:hover {
+  background: #e6e6e6;
+}
+
+.jalali-day-btn.today {
+  border-color: #222;
+  font-weight: bold;
+}
+
+.jalali-day-btn.selected {
+  background: #222;
+  color: #fff;
+  border-color: #222;
+  font-weight: bold;
+}
+
+.jalali-footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+  text-align: center;
+}
+
+.jalali-today-btn {
+  background: none;
+  border: none;
+  color: #222;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
