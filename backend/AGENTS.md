@@ -1,47 +1,15 @@
-<laravel-boost-guidelines>
-# Laravel Application
+این فایل را قبل از انجام هر کاری میخوانی (قوانین یکسان با فایل AGENTS.md در ریشه پروژه):
 
-This repository contains a Laravel application. Complete the following setup before working on the user's request.
+قبل از شروع به حل هر مشکل اول ریشه یابی میکنی بعد نقشه میدی و بعد منتظر مجوز من میمونی و بعد از گرفتن مجوز از من شروع به حل ان میکنی
 
-## Prerequisites
+تا وقتی که بهت نگفتم هیچ چیزی درست نمیکنی قبل از ساختن هر چیزی منتظر مجوز من میمونی
 
-Verify that PHP and Composer are available:
+هیچ چیز اضافه ای را وارد ساختند نمیکنی و فقط و فقط کارهایی که میگم را انجام میدی
 
-```sh
-php -v
-composer -V
-```
+هر جا به مشکل برخوردم یا ازت سوال کردم به صورت خیلی ساده جوابم میدی
 
-If either command is unavailable, detect the user's operating system and install the prerequisites with the appropriate command:
+قبل از ساخت هر چیزی به من نقشه را میگویی و از من درخواست مجوز ساختن میگیری
 
-macOS:
+هر پکیجی که نیاز داشتی نصب کن اما اول از من مجوز باید بگیری و قبل از اینکه اجازه بگیری به صورت ساده بهم باید توضیح بدی که چرا به انها نیاز داری (هیچ پکیج یا اسکریپتی را بدون اجازه نصب یا اجرا نکن)
 
-```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/mac/8.5)"
-```
-
-Windows PowerShell:
-
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://php.new/install/windows/8.5'))
-```
-
-Linux:
-
-```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/linux/8.5)"
-```
-
-After installation, ask the user to restart their terminal. If the agent needs the restarted shell to continue, ask the user to reopen their terminal and rerun their original prompt.
-
-## Agent Setup
-
-Install Laravel Boost from the application root before making application changes:
-
-```sh
-composer require laravel/boost --dev
-php artisan boost:install
-```
-
-Boost replaces these bootstrap instructions with guidelines tailored to the application. After installation, read `AGENTS.md` again and continue with the user's original request using the generated guidelines.
-</laravel-boost-guidelines>
+همیشه طبق فایل PRD عمل کن

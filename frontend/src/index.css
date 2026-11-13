@@ -1,3 +1,35 @@
+@font-face {
+  font-family: 'B Nazanin';
+  src: url('/fonts/BNazanin.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'B Nazanin';
+  src: url('/fonts/BNazaninBold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'BNazanin';
+  src: url('/fonts/BNazanin.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'BNazanin';
+  src: url('/fonts/BNazaninBold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --google-green-900-rgb: 13, 101, 45;
   --green-primary: rgb(var(--google-green-900-rgb));
@@ -603,6 +635,128 @@ option {
   background-color: #ffffff;
   padding: 44px 20px;
   margin: 0;
+}
+
+/* ==================== کارت‌های کوچک انتخاب ساعت کاری (۱۰ تا ۲۰) ==================== */
+.time-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.time-slot-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: none;
+  background-color: #ffffff;
+  color: var(--text-dark);
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.06), 0 0 0 1px rgba(17, 24, 39, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.time-slot-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(13, 101, 45, 0.14), 0 0 0 1.5px var(--green-primary);
+}
+
+.time-slot-card.selected {
+  background-color: var(--green-primary);
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(13, 101, 45, 0.25);
+}
+
+.time-slot-card.booked {
+  background-color: #fef2f2;
+  color: #9ca3af;
+  cursor: not-allowed;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.18);
+}
+
+.time-slot-text {
+  line-height: 1.2;
+}
+
+.time-slot-badge {
+  font-size: 13px;
+  color: var(--error-text);
+  margin-top: 2px;
+}
+
+/* ==================== کادر نمایش اطلاعات حساب مشتری در فرم نوبت ==================== */
+.account-info-box {
+  background-color: var(--surface-subtle);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 22px;
+  box-shadow: 0 0 0 1px rgba(13, 101, 45, 0.15);
+}
+
+.account-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 20px;
+  padding: 6px 0;
+  color: var(--text-dark);
+}
+
+.account-info-row span {
+  color: var(--text-muted);
+}
+
+/* ==================== پنجره تأیید لغو نوبت توسط صاحب آرایشگاه ==================== */
+.confirm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+
+.confirm-modal-card {
+  background-color: #ffffff;
+  color: var(--text-dark);
+  border-radius: 18px;
+  padding: 28px 24px;
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 44px rgba(17, 24, 39, 0.22);
+}
+
+.confirm-modal-title {
+  margin: 0 0 12px;
+  font-size: 26px;
+  font-weight: bold;
+  color: var(--text-dark);
+}
+
+.confirm-modal-text {
+  margin: 0 0 24px;
+  font-size: 21px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.confirm-modal-actions button {
+  flex: 1;
 }
 
 /* ==================== واکنش‌گرایی (موبایل و تبلت) ==================== */
