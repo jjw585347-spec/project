@@ -1,0 +1,26 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Database files
+*.sqlite
+*.sqlite3
+*.sqlite*
+*.db
+
+# Auto-generated & dependency directories
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+vendor/
+dist/
+dist-ssr/
+build/
+
+# Python virtual environments
+.venv/
+venv/
+ENV/
+env/
