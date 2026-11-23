@@ -1,28 +1,83 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import JalaliDatePicker from '../components/JalaliDatePicker'
 import TimeSlotPicker from '../components/TimeSlotPicker'
 import { apiRequest } from '../utils/api'
 import { formatGregorianToJalaliDisplay } from '../utils/jalali'
 import { formatPrice, TIME_SLOTS, toPersianDigits } from '../utils/persian'
 
+const BOOKING_STATE_KEY = 'barbershop_booking_page_state'
+
+function loadStoredBookingState() {
+  try {
+    const raw = sessionStorage.getItem(BOOKING_STATE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 export default function BookingPage({ customer, services, onBack }) {
-  const [customerName, setCustomerName] = useState(customer?.name || '')
-  const [customerPhone, setCustomerPhone] = useState(customer?.phone || '')
-  const [serviceId, setServiceId] = useState(services[0]?.id ? String(services[0].id) : '')
-  const [appointmentDate, setAppointmentDate] = useState('')
-  const [appointmentTime, setAppointmentTime] = useState('10:00')
+  const navigate = useNavigate()
+  const [stored] = useState(loadStoredBookingState)
+
+  function handleBackClick() {
+    if (onBack) {
+      onBack()
+    } else {
+      navigate('/services')
+    }
+  }
+
+  const [customerName, setCustomerName] = useState(
+    stored?.customerName || customer?.name || ''
+  )
+  const [customerPhone, setCustomerPhone] = useState(
+    stored?.customerPhone || customer?.phone || ''
+  )
+  const [serviceId, setServiceId] = useState(
+    stored?.serviceId || (services[0]?.id ? String(services[0].id) : '')
+  )
+  const [appointmentDate, setAppointmentDate] = useState(stored?.appointmentDate || '')
+  const [appointmentTime, setAppointmentTime] = useState(stored?.appointmentTime || '10:00')
   const [bookedSlots, setBookedSlots] = useState([])
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [savedAppointment, setSavedAppointment] = useState(null)
+  const [savedAppointment, setSavedAppointment] = useState(stored?.savedAppointment || null)
 
-  // پر شدن خودکار نام و شماره از حساب کاربری مشتری (همراه با امکان ویرایش)
+  // پر شدن خودکار نام و شماره از حساب کاربری مشتری (اگر هنوز در فرم خالی باشد)
   useEffect(() => {
     if (customer) {
-      setCustomerName(customer.name || '')
-      setCustomerPhone(customer.phone || '')
+      setCustomerName((prev) => prev || customer.name || '')
+      setCustomerPhone((prev) => prev || customer.phone || '')
     }
   }, [customer])
+
+  // ذخیره وضعیت فرم و کادر سبز خلاصه نوبت در sessionStorage تا با رفرش صفحه نپرد
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        BOOKING_STATE_KEY,
+        JSON.stringify({
+          customerName,
+          customerPhone,
+          serviceId,
+          appointmentDate,
+          appointmentTime,
+          savedAppointment,
+        })
+      )
+    } catch {
+      // نادیده گرفتن خطای احتمالی storage
+    }
+  }, [
+    customerName,
+    customerPhone,
+    serviceId,
+    appointmentDate,
+    appointmentTime,
+    savedAppointment,
+  ])
 
   useEffect(() => {
     if (!serviceId && services.length > 0) {
@@ -202,7 +257,7 @@ export default function BookingPage({ customer, services, onBack }) {
       )}
 
       <div className="page-bottom-nav">
-        <button type="button" className="secondary-btn" onClick={onBack}>
+        <button type="button" className="secondary-btn" onClick={handleBackClick}>
           برگشت به صفحه خدمات
         </button>
       </div>

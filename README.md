@@ -5,7 +5,7 @@
 | پوشه | بخش | تکنولوژی | آدرس اجرا |
 |---|---|---|---|
 | `backend` | بک‌اند و API | Laravel (PHP) + PostgreSQL | http://localhost:8000 |
-| `frontend` | رابط کاربری (فرانت‌اند) | React + Vite | http://localhost:5173 |
+| `frontend` | رابط کاربری (فرانت‌اند) | React + Vite + React Router | http://localhost:5173 |
 
 ---
 
@@ -98,6 +98,23 @@ npm run dev
 
 سپس در مرورگر آدرس **http://localhost:5173** را باز کنید.
 
+**مسیرهای صفحات فرانت‌اند (React Router):**
+- `http://localhost:5173/`: صفحه اول (انتخاب نقش مشتری یا صاحب آرایشگاه)
+- `http://localhost:5173/login`: صفحه ورود مشتری
+- `http://localhost:5173/register`: صفحه ایجاد حساب مشتری
+- `http://localhost:5173/services`: صفحه لیست خدمات آرایشگاه
+- `http://localhost:5173/booking`: صفحه فرم رزرو نوبت
+- `http://localhost:5173/owner`: پنل مدیریت نوبت‌های صاحب آرایشگاه
+
+### ۳. اجرای تست‌های بک‌اند (PHPUnit)
+برای اجرای کل تست‌های بک‌اند یا فقط تست‌های یک فایل مشخص:
+
+```powershell
+cd backend
+php artisan test
+php artisan test tests/Feature/AppointmentApiTest.php
+```
+
 ---
 
 ## ساختار فایل‌های پروژه
@@ -107,8 +124,10 @@ npm run dev
   - `app/Http/Controllers/ServiceController.php`: کنترلر لیست خدمات
   - `app/Http/Controllers/CustomerController.php`: کنترلر ثبت‌نام و ورود مشتری (با رمز ۴ رقمی عددی)
   - `app/Http/Controllers/AppointmentController.php`: کنترلر ثبت، لیست و لغو نوبت‌ها (با بررسی ساعت کاری ۱۰ تا ۲۰)
+  - `tests/Feature/`: تست‌های خودکار API (`ServiceApiTest`، `CustomerApiTest`، `AppointmentApiTest`)
 - **فرانت‌اند (`frontend/src`):**
-  - `App.jsx`: مدیریت صفحات اصلی برنامه
+  - `main.jsx`: نقطه ورود برنامه و راه‌اندازی `BrowserRouter`
+  - `App.jsx`: تعریف مسیرهای صفحات (`Routes` / `Route`) و مدیریت نشست مشتری در `sessionStorage`
   - `components/JalaliDatePicker.jsx`: تقویم شمسی
   - `components/TimeSlotPicker.jsx`: کارت‌های قابل کلیک انتخاب ساعت (۱۰:۰۰ تا ۲۰:۰۰)
   - `pages/`: صفحات تفکیک‌شده (`RoleSelectPage`، `CustomerAuthPage`، `HomePage`، `BookingPage`، `OwnerPage`)

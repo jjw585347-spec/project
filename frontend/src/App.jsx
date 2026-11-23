@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import BookingPage from './pages/BookingPage'
 import CustomerAuthPage from './pages/CustomerAuthPage'
 import HomePage from './pages/HomePage'
@@ -6,12 +7,37 @@ import OwnerPage from './pages/OwnerPage'
 import RoleSelectPage from './pages/RoleSelectPage'
 import { apiRequest } from './utils/api'
 
+const CUSTOMER_STORAGE_KEY = 'barbershop_logged_in_customer'
+
+function loadStoredCustomer() {
+  try {
+    const raw = sessionStorage.getItem(CUSTOMER_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 function App() {
-  // صفحات: 'role-select' | 'customer-login' | 'customer-register' | 'home' | 'booking' | 'owner'
-  const [page, setPage] = useState('role-select')
   const [services, setServices] = useState([])
   const [servicesError, setServicesError] = useState('')
-  const [loggedInCustomer, setLoggedInCustomer] = useState(null)
+  const [loggedInCustomer, setLoggedInCustomer] = useState(loadStoredCustomer)
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  function updateCustomer(customer) {
+    setLoggedInCustomer(customer)
+    try {
+      if (customer) {
+        sessionStorage.setItem(CUSTOMER_STORAGE_KEY, JSON.stringify(customer))
+      } else {
+        sessionStorage.removeItem(CUSTOMER_STORAGE_KEY)
+        sessionStorage.removeItem('barbershop_booking_page_state')
+      }
+    } catch {
+      // نادیده گرفتن خطای احتمالی مرورگر در حالت Private
+    }
+  }
 
   // دریافت لیست خدمات از بک‌اند
   function fetchServices() {
@@ -29,18 +55,29 @@ function App() {
     fetchServices()
   }, [])
 
+  function goToRoleSelect() {
+    if (location.pathname !== '/') {
+      navigate('/')
+    }
+  }
+
   function handleLogoClick() {
-    if (page === 'booking') {
-      setPage('home')
+    if (location.pathname === '/booking') {
+      navigate('/services')
     } else {
-      setPage('role-select')
+      goToRoleSelect()
     }
   }
 
   function handleAuthSuccess(customer) {
-    setLoggedInCustomer(customer)
+    try {
+      sessionStorage.removeItem('barbershop_booking_page_state')
+    } catch {
+      //
+    }
+    updateCustomer(customer)
     fetchServices()
-    setPage('home')
+    navigate('/services')
   }
 
   function handleOpenBooking() {
@@ -48,12 +85,12 @@ function App() {
       apiRequest(`/api/customers/${loggedInCustomer.id}`)
         .then((data) => {
           if (data?.customer) {
-            setLoggedInCustomer(data.customer)
+            updateCustomer(data.customer)
           }
         })
         .catch(() => {})
     }
-    setPage('booking')
+    navigate('/booking')
   }
 
   return (
@@ -65,50 +102,63 @@ function App() {
       </header>
 
       <main className="main">
-        {page === 'role-select' && (
-          <RoleSelectPage
-            onSelectCustomer={() => setPage('customer-login')}
-            onSelectOwner={() => setPage('owner')}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <RoleSelectPage
+                onSelectCustomer={() => navigate('/login')}
+                onSelectOwner={() => navigate('/owner')}
+              />
+            }
           />
-        )}
-
-        {page === 'customer-login' && (
-          <CustomerAuthPage
-            mode="login"
-            onSuccess={handleAuthSuccess}
-            onGoToRegister={() => setPage('customer-register')}
-            onBack={() => setPage('role-select')}
+          <Route
+            path="/login"
+            element={
+              <CustomerAuthPage
+                mode="login"
+                onSuccess={handleAuthSuccess}
+                onGoToRegister={() => navigate('/register')}
+                onBack={goToRoleSelect}
+              />
+            }
           />
-        )}
-
-        {page === 'customer-register' && (
-          <CustomerAuthPage
-            mode="register"
-            onSuccess={handleAuthSuccess}
-            onGoToLogin={() => setPage('customer-login')}
-            onBack={() => setPage('role-select')}
+          <Route
+            path="/register"
+            element={
+              <CustomerAuthPage
+                mode="register"
+                onSuccess={handleAuthSuccess}
+                onGoToLogin={() => navigate('/login')}
+                onBack={goToRoleSelect}
+              />
+            }
           />
-        )}
-
-        {page === 'home' && (
-          <HomePage
-            services={services}
-            error={servicesError}
-            customer={loggedInCustomer}
-            onOpenBooking={handleOpenBooking}
-            onBack={() => setPage('role-select')}
+          <Route
+            path="/services"
+            element={
+              <HomePage
+                services={services}
+                error={servicesError}
+                customer={loggedInCustomer}
+                onOpenBooking={handleOpenBooking}
+                onBack={goToRoleSelect}
+              />
+            }
           />
-        )}
-
-        {page === 'booking' && (
-          <BookingPage
-            customer={loggedInCustomer}
-            services={services}
-            onBack={() => setPage('home')}
+          <Route
+            path="/booking"
+            element={
+              <BookingPage
+                customer={loggedInCustomer}
+                services={services}
+                onBack={() => navigate('/services')}
+              />
+            }
           />
-        )}
-
-        {page === 'owner' && <OwnerPage onBack={() => setPage('role-select')} />}
+          <Route path="/owner" element={<OwnerPage onBack={goToRoleSelect} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
     </div>
   )

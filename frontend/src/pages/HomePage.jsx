@@ -1,6 +1,25 @@
+import { useNavigate } from 'react-router-dom'
 import { formatPrice, toPersianDigits } from '../utils/persian'
 
 export default function HomePage({ services, error, customer, onOpenBooking, onBack }) {
+  const navigate = useNavigate()
+
+  function handleBookingClick() {
+    if (onOpenBooking) {
+      onOpenBooking()
+    } else {
+      navigate('/booking')
+    }
+  }
+
+  function handleBackClick() {
+    if (onBack) {
+      onBack()
+    } else {
+      navigate('/')
+    }
+  }
+
   return (
     <>
       <h1 className="title">خدمات ما</h1>
@@ -30,13 +49,13 @@ export default function HomePage({ services, error, customer, onOpenBooking, onB
       </div>
 
       <div className="booking-action">
-        <button type="button" className="primary-btn" onClick={onOpenBooking}>
+        <button type="button" className="primary-btn" onClick={handleBookingClick}>
           نوبت گیری
         </button>
       </div>
 
       <div className="page-bottom-nav">
-        <button type="button" className="secondary-btn" onClick={onBack}>
+        <button type="button" className="secondary-btn" onClick={handleBackClick}>
           برگشت به صفحه اصلی
         </button>
       </div>

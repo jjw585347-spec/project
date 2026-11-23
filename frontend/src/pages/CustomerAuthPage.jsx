@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiRequest } from '../utils/api'
 import { toEnglishDigits } from '../utils/persian'
 
@@ -14,8 +15,33 @@ export default function CustomerAuthPage({
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const navigate = useNavigate()
 
   const isLogin = mode === 'login'
+
+  function handleGoToRegister() {
+    if (onGoToRegister) {
+      onGoToRegister()
+    } else {
+      navigate('/register')
+    }
+  }
+
+  function handleGoToLogin() {
+    if (onGoToLogin) {
+      onGoToLogin()
+    } else {
+      navigate('/login')
+    }
+  }
+
+  function handleBackClick() {
+    if (onBack) {
+      onBack()
+    } else {
+      navigate('/')
+    }
+  }
 
   // فقط اجازه ورود اعداد (حداکثر ۴ رقم) در فیلد رمز عبور
   function handlePasswordChange(e) {
@@ -115,11 +141,11 @@ export default function CustomerAuthPage({
           </button>
 
           {isLogin ? (
-            <button type="button" className="secondary-btn full-btn" onClick={onGoToRegister}>
+            <button type="button" className="secondary-btn full-btn" onClick={handleGoToRegister}>
               ایجاد حساب
             </button>
           ) : (
-            <button type="button" className="secondary-btn full-btn" onClick={onGoToLogin}>
+            <button type="button" className="secondary-btn full-btn" onClick={handleGoToLogin}>
               ورود به حساب قبلی
             </button>
           )}
@@ -127,7 +153,7 @@ export default function CustomerAuthPage({
       </form>
 
       <div className="page-bottom-nav">
-        <button type="button" className="secondary-btn" onClick={onBack}>
+        <button type="button" className="secondary-btn" onClick={handleBackClick}>
           برگشت به صفحه اصلی
         </button>
       </div>

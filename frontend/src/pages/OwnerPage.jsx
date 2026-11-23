@@ -1,16 +1,46 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import JalaliDatePicker from '../components/JalaliDatePicker'
 import { apiRequest } from '../utils/api'
 import { formatGregorianToJalaliDisplay, getTodayIsoDate } from '../utils/jalali'
 import { toPersianDigits } from '../utils/persian'
 
+const OWNER_DATE_KEY = 'barbershop_owner_selected_date'
+
+function loadInitialOwnerDate() {
+  try {
+    return sessionStorage.getItem(OWNER_DATE_KEY) || getTodayIsoDate()
+  } catch {
+    return getTodayIsoDate()
+  }
+}
+
 export default function OwnerPage({ onBack }) {
-  const [ownerDate, setOwnerDate] = useState(getTodayIsoDate)
+  const navigate = useNavigate()
+  const [ownerDate, setOwnerDate] = useState(loadInitialOwnerDate)
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [cancellingId, setCancellingId] = useState(null)
   const [confirmTarget, setConfirmTarget] = useState(null)
+
+  function handleBackClick() {
+    if (onBack) {
+      onBack()
+    } else {
+      navigate('/')
+    }
+  }
+
+  useEffect(() => {
+    try {
+      if (ownerDate) {
+        sessionStorage.setItem(OWNER_DATE_KEY, ownerDate)
+      }
+    } catch {
+      //
+    }
+  }, [ownerDate])
 
   const loadAppointments = useCallback(async (targetDate) => {
     if (!targetDate) return
@@ -151,7 +181,7 @@ export default function OwnerPage({ onBack }) {
       </div>
 
       <div className="page-bottom-nav">
-        <button type="button" className="secondary-btn" onClick={onBack}>
+        <button type="button" className="secondary-btn" onClick={handleBackClick}>
           برگشت به صفحه اصلی
         </button>
       </div>
