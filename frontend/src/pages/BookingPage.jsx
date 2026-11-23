@@ -30,10 +30,10 @@ export default function BookingPage({ customer, services, onBack }) {
   }
 
   const [customerName, setCustomerName] = useState(
-    stored?.customerName || customer?.name || ''
+    stored?.customerName !== undefined ? stored.customerName : customer?.name || ''
   )
   const [customerPhone, setCustomerPhone] = useState(
-    stored?.customerPhone || customer?.phone || ''
+    stored?.customerPhone !== undefined ? stored.customerPhone : customer?.phone || ''
   )
   const [serviceId, setServiceId] = useState(
     stored?.serviceId || (services[0]?.id ? String(services[0].id) : '')
@@ -41,9 +41,19 @@ export default function BookingPage({ customer, services, onBack }) {
   const [appointmentDate, setAppointmentDate] = useState(stored?.appointmentDate || '')
   const [appointmentTime, setAppointmentTime] = useState(stored?.appointmentTime || '10:00')
   const [bookedSlots, setBookedSlots] = useState([])
+  const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [savedAppointment, setSavedAppointment] = useState(stored?.savedAppointment || null)
+
+  function clearFieldError(field) {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
 
   // پر شدن خودکار نام و شماره از حساب کاربری مشتری (اگر هنوز در فرم خالی باشد)
   useEffect(() => {
@@ -115,32 +125,18 @@ export default function BookingPage({ customer, services, onBack }) {
   async function handleSubmit(e) {
     e.preventDefault()
     setFormError('')
+    setFieldErrors({})
     setSavedAppointment(null)
-
-    if (!customer?.id) {
-      setFormError('برای ثبت نوبت ابتدا باید وارد حساب کاربری خود شوید.')
-      return
-    }
-
-    if (!customerName.trim() || !customerPhone.trim()) {
-      setFormError('لطفاً نام و شماره موبایل را کامل وارد کنید.')
-      return
-    }
-
-    if (!serviceId || !appointmentDate || !appointmentTime) {
-      setFormError('لطفاً خدمت، روز و ساعت نوبت را انتخاب کنید.')
-      return
-    }
 
     setSubmitting(true)
     try {
       const data = await apiRequest('/api/appointments', {
         method: 'POST',
         body: JSON.stringify({
-          customer_id: customer.id,
+          customer_id: customer?.id || null,
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
-          service_id: Number(serviceId),
+          service_id: serviceId ? Number(serviceId) : null,
           appointment_date: appointmentDate,
           appointment_time: appointmentTime,
         }),
@@ -150,7 +146,14 @@ export default function BookingPage({ customer, services, onBack }) {
         prev.includes(appointmentTime) ? prev : [...prev, appointmentTime]
       )
     } catch (err) {
-      setFormError(err.message || 'خطا در ثبت نوبت')
+      if (err.errors && Object.keys(err.errors).length > 0) {
+        setFieldErrors(err.errors)
+        if (err.errors.customer_id) {
+          setFormError(err.errors.customer_id)
+        }
+      } else {
+        setFormError(err.message || 'خطا در ثبت نوبت')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -160,18 +163,26 @@ export default function BookingPage({ customer, services, onBack }) {
     <div className="booking-container">
       <h1 className="title">رزرو نوبت</h1>
 
-      <form className="booking-form" onSubmit={handleSubmit}>
+      <form className="booking-form" onSubmit={handleSubmit} noValidate>
         <div className="form-group">
           <label htmlFor="customerName">نام و نام خانوادگی</label>
           <input
             id="customerName"
             type="text"
-            maxLength={40}
+            className={fieldErrors.customer_name ? 'input-invalid' : ''}
+            aria-invalid={Boolean(fieldErrors.customer_name)}
             value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
+            onChange={(e) => {
+              setCustomerName(e.target.value)
+              clearFieldError('customer_name')
+            }}
             placeholder="نام خود را وارد کنید"
-            required
           />
+          {fieldErrors.customer_name && (
+            <p className="field-error" role="alert">
+              {fieldErrors.customer_name}
+            </p>
+          )}
         </div>
 
         <div className="form-group">
@@ -179,20 +190,33 @@ export default function BookingPage({ customer, services, onBack }) {
           <input
             id="customerPhone"
             type="tel"
+            className={fieldErrors.customer_phone ? 'input-invalid' : ''}
+            aria-invalid={Boolean(fieldErrors.customer_phone)}
             value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
+            onChange={(e) => {
+              setCustomerPhone(e.target.value)
+              clearFieldError('customer_phone')
+            }}
             placeholder="مثلاً 09123456789"
-            required
           />
+          {fieldErrors.customer_phone && (
+            <p className="field-error" role="alert">
+              {fieldErrors.customer_phone}
+            </p>
+          )}
         </div>
 
         <div className="form-group">
           <label htmlFor="serviceId">انتخاب خدمت</label>
           <select
             id="serviceId"
+            className={fieldErrors.service_id ? 'input-invalid' : ''}
+            aria-invalid={Boolean(fieldErrors.service_id)}
             value={serviceId}
-            onChange={(e) => setServiceId(e.target.value)}
-            required
+            onChange={(e) => {
+              setServiceId(e.target.value)
+              clearFieldError('service_id')
+            }}
           >
             {services.map((service) => (
               <option key={service.id} value={service.id}>
@@ -201,24 +225,46 @@ export default function BookingPage({ customer, services, onBack }) {
               </option>
             ))}
           </select>
+          {fieldErrors.service_id && (
+            <p className="field-error" role="alert">
+              {fieldErrors.service_id}
+            </p>
+          )}
         </div>
 
         <div className="form-group">
           <label htmlFor="appointmentDate">انتخاب روز (شمسی)</label>
           <JalaliDatePicker
             id="appointmentDate"
+            invalid={Boolean(fieldErrors.appointment_date)}
             value={appointmentDate}
-            onChange={setAppointmentDate}
+            onChange={(val) => {
+              setAppointmentDate(val)
+              clearFieldError('appointment_date')
+            }}
           />
+          {fieldErrors.appointment_date && (
+            <p className="field-error" role="alert">
+              {fieldErrors.appointment_date}
+            </p>
+          )}
         </div>
 
         <div className="form-group">
           <label>انتخاب ساعت</label>
           <TimeSlotPicker
             value={appointmentTime}
-            onChange={setAppointmentTime}
+            onChange={(val) => {
+              setAppointmentTime(val)
+              clearFieldError('appointment_time')
+            }}
             bookedSlots={bookedSlots}
           />
+          {fieldErrors.appointment_time && (
+            <p className="field-error" role="alert">
+              {fieldErrors.appointment_time}
+            </p>
+          )}
         </div>
 
         {formError && <p className="error">{formError}</p>}

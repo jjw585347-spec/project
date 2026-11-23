@@ -328,6 +328,24 @@ option {
   box-shadow: 0 0 0 2px var(--green-primary), 0 4px 12px rgba(13, 101, 45, 0.12);
 }
 
+.form-group input.input-invalid,
+.form-group select.input-invalid,
+.jalali-input.input-invalid {
+  box-shadow: 0 0 0 2px var(--danger-btn), 0 2px 8px rgba(220, 38, 38, 0.12);
+}
+
+.field-error {
+  margin: 8px 2px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  font-size: 19px;
+  font-weight: bold;
+  text-align: right;
+  direction: rtl;
+}
+
 .form-actions {
   display: flex;
   gap: 14px;

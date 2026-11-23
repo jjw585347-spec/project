@@ -64,7 +64,19 @@ class CustomerApiTest extends TestCase
             'password' => '1234',
         ]);
 
-        $invalidPhoneResponse->assertStatus(422);
+        $invalidPhoneResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['phone']]);
+
+        // نام خالی
+        $emptyNameResponse = $this->postJson('/api/customers/register', [
+            'name' => '   ',
+            'phone' => '09123456789',
+            'password' => '1234',
+        ]);
+
+        $emptyNameResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['name']])
+            ->assertJsonPath('errors.name', 'لطفاً نام و نام خانوادگی را وارد کنید.');
     }
 
     /**

@@ -13,11 +13,21 @@ export default function CustomerAuthPage({
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
 
   const isLogin = mode === 'login'
+
+  function clearFieldError(field) {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
 
   function handleGoToRegister() {
     if (onGoToRegister) {
@@ -48,25 +58,17 @@ export default function CustomerAuthPage({
     const raw = toEnglishDigits(e.target.value)
     const digitsOnly = raw.replace(/\D/g, '').slice(0, 4)
     setPassword(digitsOnly)
+    clearFieldError('password')
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setFieldErrors({})
 
     const trimmedName = name.trim()
     const normalizedPhone = toEnglishDigits(phone).trim()
     const normalizedPassword = toEnglishDigits(password).trim()
-
-    if (!trimmedName || !normalizedPhone || !normalizedPassword) {
-      setError('لطفاً نام، شماره موبایل و رمز عبور ۴ رقمی خود را کامل وارد کنید.')
-      return
-    }
-
-    if (!/^\d{4}$/.test(normalizedPassword)) {
-      setError('رمز عبور باید فقط و فقط شامل ۴ رقم عدد باشد (مثلاً 1234).')
-      return
-    }
 
     setSubmitting(true)
     try {
@@ -81,7 +83,11 @@ export default function CustomerAuthPage({
       })
       onSuccess(data.customer)
     } catch (err) {
-      setError(err.message || (isLogin ? 'خطا در ورود به حساب' : 'خطا در ایجاد حساب'))
+      if (err.errors && Object.keys(err.errors).length > 0) {
+        setFieldErrors(err.errors)
+      } else {
+        setError(err.message || (isLogin ? 'خطا در ورود به حساب' : 'خطا در ایجاد حساب'))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -91,20 +97,28 @@ export default function CustomerAuthPage({
     <div className="booking-container">
       <h1 className="title">{isLogin ? 'ورود مشتری' : 'ایجاد حساب مشتری'}</h1>
 
-      <form className="booking-form" onSubmit={handleSubmit}>
+      <form className="booking-form" onSubmit={handleSubmit} noValidate>
         <div className="form-group">
           <label htmlFor="authName">نام و نام خانوادگی</label>
           <input
             id="authName"
             type="text"
-            maxLength={40}
+            className={fieldErrors.name ? 'input-invalid' : ''}
+            aria-invalid={Boolean(fieldErrors.name)}
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value)
+              clearFieldError('name')
+            }}
             placeholder={
               isLogin ? 'نامی که قبلاً ثبت کرده‌اید را وارد کنید' : 'نام خود را وارد کنید'
             }
-            required
           />
+          {fieldErrors.name && (
+            <p className="field-error" role="alert">
+              {fieldErrors.name}
+            </p>
+          )}
         </div>
 
         <div className="form-group">
@@ -112,11 +126,20 @@ export default function CustomerAuthPage({
           <input
             id="authPhone"
             type="tel"
+            className={fieldErrors.phone ? 'input-invalid' : ''}
+            aria-invalid={Boolean(fieldErrors.phone)}
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => {
+              setPhone(e.target.value)
+              clearFieldError('phone')
+            }}
             placeholder="مثلاً 09123456789"
-            required
           />
+          {fieldErrors.phone && (
+            <p className="field-error" role="alert">
+              {fieldErrors.phone}
+            </p>
+          )}
         </div>
 
         <div className="form-group">
@@ -126,11 +149,17 @@ export default function CustomerAuthPage({
             type="password"
             inputMode="numeric"
             maxLength={4}
+            className={fieldErrors.password ? 'input-invalid' : ''}
+            aria-invalid={Boolean(fieldErrors.password)}
             value={password}
             onChange={handlePasswordChange}
             placeholder="یک رمز ۴ رقمی عددی (مثلاً 1234)"
-            required
           />
+          {fieldErrors.password && (
+            <p className="field-error" role="alert">
+              {fieldErrors.password}
+            </p>
+          )}
         </div>
 
         {error && <p className="error">{error}</p>}

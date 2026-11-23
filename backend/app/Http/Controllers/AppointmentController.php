@@ -53,15 +53,108 @@ class AppointmentController extends Controller
     }
 
     /**
+     * بررسی معتبر بودن رشته تاریخ میلادی با فرمت YYYY-MM-DD و صحت تقویمی آن
+     */
+    private static function isValidGregorianDate(string $date): bool
+    {
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $matches)) {
+            return false;
+        }
+
+        return checkdate((int) $matches[2], (int) $matches[3], (int) $matches[1]);
+    }
+
+    /**
      * ثبت نوبت جدید (متصل به حساب مشتری و بررسی ساعت کاری در بک‌اند): POST /api/appointments
      */
     public function store(Request $request): JsonResponse
     {
+        $errors = [];
+
+        $customerName = trim((string) $request->input('customer_name', ''));
+        $customerPhone = CustomerController::normalizeDigits(
+            (string) $request->input('customer_phone', '')
+        );
+        $serviceId = $request->input('service_id');
+        $rawDate = CustomerController::normalizeDigits((string) $request->input('appointment_date', ''));
+        $rawTime = CustomerController::normalizeDigits((string) $request->input('appointment_time', ''));
+
+        // ۱. اعتبارسنجی نام مشتری (خالی نباشد)
+        if ($customerName === '') {
+            $errors['customer_name'] = 'لطفاً نام و نام خانوادگی را وارد کنید.';
+        }
+
+        // ۲. اعتبارسنجی شماره موبایل (۱۱ رقم و شروع با 09 طبق R10)
+        if ($customerPhone === '') {
+            $errors['customer_phone'] = 'لطفاً شماره موبایل را وارد کنید.';
+        } elseif (!preg_match('/^09\d{9}$/', $customerPhone)) {
+            $errors['customer_phone'] = 'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با ۰۹ شروع می‌شود (مثلاً 09123456789) وارد کنید.';
+        }
+
+        // ۳. اعتبارسنجی خدمت انتخاب‌شده
+        if (
+            $serviceId === null ||
+            $serviceId === '' ||
+            !is_numeric($serviceId) ||
+            !Service::where('id', (int) $serviceId)->exists()
+        ) {
+            $errors['service_id'] = 'لطفاً یکی از خدمات معتبر آرایشگاه را انتخاب کنید.';
+        }
+
+        // ۴. اعتبارسنجی تاریخ نوبت
+        $isDateFormatValid = self::isValidGregorianDate($rawDate);
+        $now = Carbon::now('Asia/Tehran');
+        $today = $now->copy()->startOfDay();
+        $appointmentDate = null;
+
+        if (!$isDateFormatValid) {
+            $errors['appointment_date'] = 'لطفاً یک تاریخ معتبر برای نوبت انتخاب کنید.';
+        } else {
+            $appointmentDate = Carbon::createFromFormat('Y-m-d', $rawDate, 'Asia/Tehran')->startOfDay();
+            if ($appointmentDate->lessThan($today)) {
+                $errors['appointment_date'] = 'ثبت نوبت ناموفق بود: تاریخ انتخاب‌شده مربوط به گذشته است.';
+            }
+        }
+
+        // ۵. اعتبارسنجی ساعت نوبت
+        if (!in_array($rawTime, self::ALLOWED_TIME_SLOTS, true)) {
+            $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده معتبر نیست. ساعت کاری آرایشگاه از ۱۰:۰۰ تا ۲۰:۰۰ است.';
+        } elseif ($isDateFormatValid && $appointmentDate !== null) {
+            $appointmentDateTime = Carbon::createFromFormat('Y-m-d H:i', $rawDate . ' ' . $rawTime, 'Asia/Tehran');
+            if ($appointmentDate->equalTo($today) && $appointmentDateTime->lessThanOrEqualTo($now)) {
+                $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده در امروز گذشته است. لطفاً ساعت دیگری در ادامه امروز یا روز دیگری را انتخاب کنید.';
+            } elseif (!$appointmentDate->lessThan($today)) {
+                $alreadyBooked = Appointment::whereDate('appointment_date', $rawDate)
+                    ->where('appointment_time', $rawTime)
+                    ->where('status', '!=', 'cancelled')
+                    ->exists();
+
+                if ($alreadyBooked) {
+                    $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: این ساعت در این روز قبلاً رزرو شده است. لطفاً ساعت یا روز دیگری را انتخاب کنید.';
+                }
+            }
+        }
+
+        if (!empty($errors)) {
+            return response()->json(
+                [
+                    'message' => reset($errors),
+                    'errors' => $errors,
+                ],
+                422,
+                [],
+                JSON_UNESCAPED_UNICODE
+            );
+        }
+
         $customerId = $request->input('customer_id');
         if (!$customerId) {
             return response()->json(
                 [
                     'message' => 'ثبت نوبت ناموفق بود: ابتدا باید وارد حساب کاربری خود شوید.',
+                    'errors' => [
+                        'customer_id' => 'ثبت نوبت ناموفق بود: ابتدا باید وارد حساب کاربری خود شوید.',
+                    ],
                 ],
                 422,
                 [],
@@ -74,127 +167,9 @@ class AppointmentController extends Controller
             return response()->json(
                 [
                     'message' => 'ثبت نوبت ناموفق بود: حساب کاربری شما در سیستم یافت نشد. لطفاً دوباره وارد شوید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
-
-        // مقدار پیش‌فرض از حساب مشتری است اما کاربر می‌تواند در فرم آن را تغییر دهد
-        $customerName = trim((string) $request->input('customer_name', $customer->name));
-        $customerPhone = CustomerController::normalizeDigits(
-            (string) $request->input('customer_phone', $customer->phone)
-        );
-
-        if ($customerName === '' || $customerPhone === '') {
-            return response()->json(
-                [
-                    'message' => 'لطفاً نام و شماره موبایل را کامل وارد کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
-
-        if (mb_strlen($customerName) > 40) {
-            return response()->json(
-                [
-                    'message' => 'ثبت نوبت ناموفق بود: نام واردشده خیلی طولانی است (حداکثر ۴۰ کاراکتر مجاز است).',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
-
-        if (!preg_match('/^09\d{9}$/', $customerPhone)) {
-            return response()->json(
-                [
-                    'message' => 'ثبت نوبت ناموفق بود: شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با 09 شروع می‌شود (مثلاً 09123456789) وارد کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
-
-        $serviceId = $request->input('service_id');
-        if (!$serviceId || !Service::where('id', $serviceId)->exists()) {
-            return response()->json(
-                [
-                    'message' => 'لطفاً یکی از خدمات معتبر آرایشگاه را انتخاب کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
-
-        $rawDate = CustomerController::normalizeDigits((string) $request->input('appointment_date', ''));
-        if ($rawDate === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $rawDate) || !strtotime($rawDate)) {
-            return response()->json(
-                [
-                    'message' => 'لطفاً یک تاریخ معتبر برای نوبت انتخاب کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
-
-        $rawTime = CustomerController::normalizeDigits((string) $request->input('appointment_time', ''));
-        if (!in_array($rawTime, self::ALLOWED_TIME_SLOTS, true)) {
-            return response()->json(
-                [
-                    'message' => 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده معتبر نیست. ساعت کاری آرایشگاه از ۱۰:۰۰ تا ۲۰:۰۰ است.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
-
-        $now = Carbon::now('Asia/Tehran');
-        $appointmentDate = Carbon::parse($rawDate, 'Asia/Tehran')->startOfDay();
-        $today = $now->copy()->startOfDay();
-
-        // بررسی ۱: اگر تاریخ واردشده برای روزهای گذشته باشد
-        if ($appointmentDate->lessThan($today)) {
-            return response()->json(
-                [
-                    'message' => 'ثبت نوبت ناموفق بود: تاریخ انتخاب‌شده مربوط به گذشته است.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
-
-        // بررسی ۲: اگر تاریخ برای امروز باشد ولی ساعت آن گذشته باشد
-        $appointmentDateTime = Carbon::parse($rawDate . ' ' . $rawTime, 'Asia/Tehran');
-        if ($appointmentDate->equalTo($today) && $appointmentDateTime->lessThanOrEqualTo($now)) {
-            return response()->json(
-                [
-                    'message' => 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده در امروز گذشته است. لطفاً ساعت دیگری در ادامه امروز یا روز دیگری را انتخاب کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
-
-        // بررسی ۳: جلوگیری از رزرو تکراری یک ساعت در یک روز (نوبت‌های لغوشده آزاد هستند)
-        $alreadyBooked = Appointment::whereDate('appointment_date', $rawDate)
-            ->where('appointment_time', $rawTime)
-            ->where('status', '!=', 'cancelled')
-            ->exists();
-
-        if ($alreadyBooked) {
-            return response()->json(
-                [
-                    'message' => 'ثبت نوبت ناموفق بود: این ساعت در این روز قبلاً رزرو شده است. لطفاً ساعت یا روز دیگری را انتخاب کنید.',
+                    'errors' => [
+                        'customer_id' => 'ثبت نوبت ناموفق بود: حساب کاربری شما در سیستم یافت نشد. لطفاً دوباره وارد شوید.',
+                    ],
                 ],
                 422,
                 [],

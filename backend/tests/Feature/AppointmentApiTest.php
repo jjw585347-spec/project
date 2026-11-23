@@ -38,6 +38,7 @@ class AppointmentApiTest extends TestCase
     {
         [$customer, $service] = $this->createTestCustomerAndService();
         $date = Carbon::now('Asia/Tehran')->addDays(2)->toDateString();
+        Appointment::whereDate('appointment_date', $date)->delete();
 
         Appointment::create([
             'customer_id' => $customer->id,
@@ -89,6 +90,7 @@ class AppointmentApiTest extends TestCase
     {
         [$customer, $service] = $this->createTestCustomerAndService();
         $futureDate = Carbon::now('Asia/Tehran')->addDay()->toDateString();
+        Appointment::whereDate('appointment_date', $futureDate)->delete();
 
         $response = $this->postJson('/api/appointments', [
             'customer_id' => $customer->id,
@@ -225,5 +227,182 @@ class AppointmentApiTest extends TestCase
 
         $response->assertStatus(404)
             ->assertJsonPath('message', 'نوبت مورد نظر یافت نشد.');
+    }
+
+    /**
+     * حالت خطا ۳ (نام خالی): POST /api/appointments رد کردن ورودی با نام خالی با کد 422 و پیام فارسی برای فیلد customer_name
+     */
+    public function test_store_appointment_fails_when_customer_name_is_empty(): void
+    {
+        [$customer, $service] = $this->createTestCustomerAndService();
+        $futureDate = Carbon::now('Asia/Tehran')->addDay()->toDateString();
+
+        $response = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => '   ',
+            'customer_phone' => '09121234567',
+            'service_id' => $service->id,
+            'appointment_date' => $futureDate,
+            'appointment_time' => '11:00',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['customer_name']])
+            ->assertJsonPath('errors.customer_name', 'لطفاً نام و نام خانوادگی را وارد کنید.');
+    }
+
+    /**
+     * حالت خطا ۴ (موبایل نامعتبر طبق R10): POST /api/appointments رد کردن موبایل خالی، غیر ۱۱ رقمی یا شروع بدون 09 با کد 422 و پیام فارسی برای فیلد customer_phone
+     */
+    public function test_store_appointment_fails_when_customer_phone_is_invalid(): void
+    {
+        [$customer, $service] = $this->createTestCustomerAndService();
+        $futureDate = Carbon::now('Asia/Tehran')->addDay()->toDateString();
+
+        // الف) موبایل خالی
+        $emptyPhoneResponse = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => '',
+            'service_id' => $service->id,
+            'appointment_date' => $futureDate,
+            'appointment_time' => '11:00',
+        ]);
+
+        $emptyPhoneResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['customer_phone']])
+            ->assertJsonPath('errors.customer_phone', 'لطفاً شماره موبایل را وارد کنید.');
+
+        // ب) موبایل که با 09 شروع نمی‌شود
+        $wrongPrefixResponse = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => '08121234567',
+            'service_id' => $service->id,
+            'appointment_date' => $futureDate,
+            'appointment_time' => '11:00',
+        ]);
+
+        $wrongPrefixResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['customer_phone']])
+            ->assertJsonPath(
+                'errors.customer_phone',
+                'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با ۰۹ شروع می‌شود (مثلاً 09123456789) وارد کنید.'
+            );
+
+        // ج) موبایل کمتر یا بیشتر از ۱۱ رقم
+        $shortPhoneResponse = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => '091212345',
+            'service_id' => $service->id,
+            'appointment_date' => $futureDate,
+            'appointment_time' => '11:00',
+        ]);
+
+        $shortPhoneResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['customer_phone']]);
+    }
+
+    /**
+     * حالت خطا ۵ (خدمت نامعتبر): POST /api/appointments رد کردن خدمت خالی یا ناموجود با کد 422 و پیام فارسی برای فیلد service_id
+     */
+    public function test_store_appointment_fails_when_service_is_invalid(): void
+    {
+        [$customer] = $this->createTestCustomerAndService();
+        $futureDate = Carbon::now('Asia/Tehran')->addDay()->toDateString();
+
+        // الف) خدمت خالی
+        $emptyServiceResponse = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => $customer->phone,
+            'service_id' => '',
+            'appointment_date' => $futureDate,
+            'appointment_time' => '11:00',
+        ]);
+
+        $emptyServiceResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['service_id']])
+            ->assertJsonPath('errors.service_id', 'لطفاً یکی از خدمات معتبر آرایشگاه را انتخاب کنید.');
+
+        // ب) شناسه خدمت ناموجود در دیتابیس
+        $nonExistentServiceResponse = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => $customer->phone,
+            'service_id' => 99999999,
+            'appointment_date' => $futureDate,
+            'appointment_time' => '11:00',
+        ]);
+
+        $nonExistentServiceResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['service_id']])
+            ->assertJsonPath('errors.service_id', 'لطفاً یکی از خدمات معتبر آرایشگاه را انتخاب کنید.');
+    }
+
+    /**
+     * حالت خطا ۶ (تاریخ نامعتبر): POST /api/appointments رد کردن تاریخ خالی یا فرمت/تقویم نامعتبر با کد 422 و پیام فارسی برای فیلد appointment_date
+     */
+    public function test_store_appointment_fails_when_date_is_invalid(): void
+    {
+        [$customer, $service] = $this->createTestCustomerAndService();
+
+        // الف) تاریخ خالی
+        $emptyDateResponse = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => $customer->phone,
+            'service_id' => $service->id,
+            'appointment_date' => '',
+            'appointment_time' => '11:00',
+        ]);
+
+        $emptyDateResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['appointment_date']])
+            ->assertJsonPath('errors.appointment_date', 'لطفاً یک تاریخ معتبر برای نوبت انتخاب کنید.');
+
+        // ب) تاریخ تقویمی نامعتبر (مثلاً ۳۰ فوریه)
+        $impossibleDateResponse = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => $customer->phone,
+            'service_id' => $service->id,
+            'appointment_date' => '2027-02-30',
+            'appointment_time' => '11:00',
+        ]);
+
+        $impossibleDateResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['appointment_date']])
+            ->assertJsonPath('errors.appointment_date', 'لطفاً یک تاریخ معتبر برای نوبت انتخاب کنید.');
+    }
+
+    /**
+     * حالت خطا ۷ (چند فیلد هم‌زمان نامعتبر): POST /api/appointments بازگرداندن پیام فارسی مجزا برای تمام فیلدهای نامعتبر در یک پاسخ 422
+     */
+    public function test_store_appointment_returns_all_field_errors_when_multiple_inputs_are_invalid(): void
+    {
+        [$customer] = $this->createTestCustomerAndService();
+
+        $response = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => '',
+            'customer_phone' => '12345',
+            'service_id' => 99999999,
+            'appointment_date' => 'invalid-date',
+            'appointment_time' => '23:00',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure([
+                'message',
+                'errors' => [
+                    'customer_name',
+                    'customer_phone',
+                    'service_id',
+                    'appointment_date',
+                    'appointment_time',
+                ],
+            ]);
     }
 }

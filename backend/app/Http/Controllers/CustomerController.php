@@ -35,43 +35,29 @@ class CustomerController extends Controller
         $phone = self::normalizeDigits((string) $request->input('phone', ''));
         $password = self::normalizeDigits((string) $request->input('password', ''));
 
-        if ($name === '' || $phone === '' || $password === '') {
-            return response()->json(
-                [
-                    'message' => 'لطفاً نام، شماره موبایل و رمز عبور ۴ رقمی خود را کامل وارد کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
+        $errors = [];
+
+        if ($name === '') {
+            $errors['name'] = 'لطفاً نام و نام خانوادگی را وارد کنید.';
         }
 
-        if (mb_strlen($name) > 40) {
-            return response()->json(
-                [
-                    'message' => 'نام واردشده خیلی طولانی است. لطفاً نام را حداکثر تا ۴۰ کاراکتر وارد کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
+        if ($phone === '') {
+            $errors['phone'] = 'لطفاً شماره موبایل را وارد کنید.';
+        } elseif (!preg_match('/^09\d{9}$/', $phone)) {
+            $errors['phone'] = 'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با ۰۹ شروع می‌شود (مثلاً 09123456789) وارد کنید.';
         }
 
-        if (!preg_match('/^09\d{9}$/', $phone)) {
-            return response()->json(
-                [
-                    'message' => 'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با 09 شروع می‌شود (مثلاً 09123456789) وارد کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
+        if ($password === '') {
+            $errors['password'] = 'لطفاً رمز عبور ۴ رقمی را وارد کنید.';
+        } elseif (!preg_match('/^\d{4}$/', $password)) {
+            $errors['password'] = 'رمز عبور باید فقط و فقط شامل ۴ رقم عدد باشد (مثلاً 1234).';
         }
 
-        if (!preg_match('/^\d{4}$/', $password)) {
+        if (!empty($errors)) {
             return response()->json(
                 [
-                    'message' => 'رمز عبور باید فقط و فقط شامل ۴ رقم عدد باشد (مثلاً 1234).',
+                    'message' => reset($errors),
+                    'errors' => $errors,
                 ],
                 422,
                 [],
@@ -90,9 +76,13 @@ class CustomerController extends Controller
                 $account->password === $password;
 
             if ($samePassword) {
+                $duplicateMessage = 'این حساب با همین نام، شماره موبایل و رمز عبور قبلاً ثبت شده است. لطفاً رمز عبور ۴ رقمی متفاوتی انتخاب کنید یا از بخش ورود وارد شوید.';
                 return response()->json(
                     [
-                        'message' => 'این حساب با همین نام، شماره موبایل و رمز عبور قبلاً ثبت شده است. لطفاً رمز عبور ۴ رقمی متفاوتی انتخاب کنید یا از بخش ورود وارد شوید.',
+                        'message' => $duplicateMessage,
+                        'errors' => [
+                            'phone' => $duplicateMessage,
+                        ],
                     ],
                     422,
                     [],
@@ -127,43 +117,29 @@ class CustomerController extends Controller
         $phone = self::normalizeDigits((string) $request->input('phone', ''));
         $password = self::normalizeDigits((string) $request->input('password', ''));
 
-        if ($name === '' || $phone === '' || $password === '') {
-            return response()->json(
-                [
-                    'message' => 'لطفاً نام، شماره موبایل و رمز عبور ۴ رقمی خود را وارد کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
+        $errors = [];
+
+        if ($name === '') {
+            $errors['name'] = 'لطفاً نام و نام خانوادگی را وارد کنید.';
         }
 
-        if (mb_strlen($name) > 40) {
-            return response()->json(
-                [
-                    'message' => 'نام واردشده خیلی طولانی است. لطفاً نام را حداکثر تا ۴۰ کاراکتر وارد کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
+        if ($phone === '') {
+            $errors['phone'] = 'لطفاً شماره موبایل را وارد کنید.';
+        } elseif (!preg_match('/^09\d{9}$/', $phone)) {
+            $errors['phone'] = 'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با ۰۹ شروع می‌شود (مثلاً 09123456789) وارد کنید.';
         }
 
-        if (!preg_match('/^09\d{9}$/', $phone)) {
-            return response()->json(
-                [
-                    'message' => 'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با 09 شروع می‌شود (مثلاً 09123456789) وارد کنید.',
-                ],
-                422,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
+        if ($password === '') {
+            $errors['password'] = 'لطفاً رمز عبور ۴ رقمی را وارد کنید.';
+        } elseif (!preg_match('/^\d{4}$/', $password)) {
+            $errors['password'] = 'رمز عبور باید فقط و فقط شامل ۴ رقم عدد باشد.';
         }
 
-        if (!preg_match('/^\d{4}$/', $password)) {
+        if (!empty($errors)) {
             return response()->json(
                 [
-                    'message' => 'رمز عبور باید فقط و فقط شامل ۴ رقم عدد باشد.',
+                    'message' => reset($errors),
+                    'errors' => $errors,
                 ],
                 422,
                 [],
@@ -174,9 +150,13 @@ class CustomerController extends Controller
         $accountsByName = Customer::where('name', $name)->get();
 
         if ($accountsByName->isEmpty()) {
+            $notFoundMessage = 'نام واردشده در سیستم وجود ندارد. اگر هنوز ثبت‌نام نکرده‌اید، روی دکمه «ایجاد حساب» در پایین کلیک کنید.';
             return response()->json(
                 [
-                    'message' => 'نام واردشده در سیستم وجود ندارد. اگر هنوز ثبت‌نام نکرده‌اید، روی دکمه «ایجاد حساب» در پایین کلیک کنید.',
+                    'message' => $notFoundMessage,
+                    'errors' => [
+                        'name' => $notFoundMessage,
+                    ],
                 ],
                 422,
                 [],
@@ -187,9 +167,13 @@ class CustomerController extends Controller
         $accountsByNameAndPhone = $accountsByName->where('phone', $phone);
 
         if ($accountsByNameAndPhone->isEmpty()) {
+            $phoneMismatchMessage = 'شماره موبایل واردشده با این نام مطابقت ندارد.';
             return response()->json(
                 [
-                    'message' => 'شماره موبایل واردشده با این نام مطابقت ندارد.',
+                    'message' => $phoneMismatchMessage,
+                    'errors' => [
+                        'phone' => $phoneMismatchMessage,
+                    ],
                 ],
                 422,
                 [],
@@ -202,9 +186,13 @@ class CustomerController extends Controller
         });
 
         if (!$matchedCustomer) {
+            $wrongPasswordMessage = 'رمز عبور ۴ رقمی واردشده اشتباه است.';
             return response()->json(
                 [
-                    'message' => 'رمز عبور ۴ رقمی واردشده اشتباه است.',
+                    'message' => $wrongPasswordMessage,
+                    'errors' => [
+                        'password' => $wrongPasswordMessage,
+                    ],
                 ],
                 422,
                 [],

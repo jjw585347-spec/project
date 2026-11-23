@@ -9,7 +9,12 @@ import {
 } from '../utils/jalali'
 import { toPersianDigits } from '../utils/persian'
 
-export default function JalaliDatePicker({ id = 'appointmentDate', value, onChange }) {
+export default function JalaliDatePicker({
+  id = 'appointmentDate',
+  value,
+  onChange,
+  invalid = false,
+}) {
   const now = new Date()
   const [todayJy, todayJm, todayJd] = gregorianToJalali(
     now.getFullYear(),
@@ -94,11 +99,11 @@ export default function JalaliDatePicker({ id = 'appointmentDate', value, onChan
         id={id}
         type="text"
         readOnly
+        aria-invalid={invalid}
         value={value ? formatGregorianToJalaliDisplay(value) : ''}
         placeholder="انتخاب تاریخ شمسی (مثلاً ۱۴۰۵/۰۸/۲۱)"
         onClick={() => setIsOpen((o) => !o)}
-        className="jalali-input"
-        required
+        className={`jalali-input ${invalid ? 'input-invalid' : ''}`}
       />
       {isOpen && (
         <div className="jalali-popover">
