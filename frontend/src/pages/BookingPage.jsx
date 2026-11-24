@@ -102,11 +102,9 @@ export default function BookingPage({ customer, services, onBack }) {
       return
     }
 
-    apiRequest(`/api/appointments?date=${encodeURIComponent(appointmentDate)}`)
+    apiRequest(`/api/appointments/booked-slots?date=${encodeURIComponent(appointmentDate)}`)
       .then((data) => {
-        const activeTimes = (data.appointments || [])
-          .filter((item) => item.status !== 'cancelled')
-          .map((item) => item.appointment_time)
+        const activeTimes = Array.isArray(data.booked_slots) ? data.booked_slots : []
         setBookedSlots(activeTimes)
 
         // اگر ساعت فعلی رزرو شده است، اولین ساعت آزاد را انتخاب کن

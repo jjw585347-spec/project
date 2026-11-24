@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Admin;
 use App\Models\Appointment;
 use App\Models\Customer;
 use App\Models\Service;
@@ -13,6 +14,22 @@ use Tests\TestCase;
 class AppointmentApiTest extends TestCase
 {
     use DatabaseTransactions;
+
+    private function getAdminAuthHeaders(): array
+    {
+        $plainToken = 'test_admin_token_for_appointment_tests';
+        Admin::updateOrCreate(
+            ['phone' => '09120000000'],
+            [
+                'password' => Hash::make('1234'),
+                'api_token' => hash('sha256', $plainToken),
+            ]
+        );
+
+        return [
+            'Authorization' => "Bearer {$plainToken}",
+        ];
+    }
 
     private function createTestCustomerAndService(): array
     {
@@ -60,7 +77,8 @@ class AppointmentApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $response = $this->getJson("/api/appointments?date={$date}");
+        $response = $this->withHeaders($this->getAdminAuthHeaders())
+            ->getJson("/api/appointments?date={$date}");
 
         $response->assertStatus(200)
             ->assertJsonPath('date', $date)
@@ -76,7 +94,8 @@ class AppointmentApiTest extends TestCase
     {
         $emptyDate = '2099-01-01';
 
-        $response = $this->getJson("/api/appointments?date={$emptyDate}");
+        $response = $this->withHeaders($this->getAdminAuthHeaders())
+            ->getJson("/api/appointments?date={$emptyDate}");
 
         $response->assertStatus(200)
             ->assertJsonPath('date', $emptyDate)
@@ -206,7 +225,8 @@ class AppointmentApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $response = $this->patchJson("/api/appointments/{$appointment->id}/cancel");
+        $response = $this->withHeaders($this->getAdminAuthHeaders())
+            ->patchJson("/api/appointments/{$appointment->id}/cancel");
 
         $response->assertStatus(200)
             ->assertJsonPath('message', 'رزرو با موفقیت لغو شد.')
@@ -223,7 +243,8 @@ class AppointmentApiTest extends TestCase
      */
     public function test_cancel_appointment_returns_404_when_not_found(): void
     {
-        $response = $this->patchJson('/api/appointments/99999999/cancel');
+        $response = $this->withHeaders($this->getAdminAuthHeaders())
+            ->patchJson('/api/appointments/99999999/cancel');
 
         $response->assertStatus(404)
             ->assertJsonPath('message', 'نوبت مورد نظر یافت نشد.');

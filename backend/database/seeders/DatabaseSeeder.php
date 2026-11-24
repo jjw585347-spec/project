@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Http\Controllers\AdminAuthController;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -18,5 +18,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ServiceSeeder::class,
         ]);
+
+        // ایجاد یا همگام‌سازی حساب اولیه مدیر با رمز هش‌شده از تنظیمات (.env)
+        AdminAuthController::ensureConfiguredAdmin();
     }
 }

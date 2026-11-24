@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import AdminLoginPage from './pages/AdminLoginPage'
 import BookingPage from './pages/BookingPage'
 import CustomerAuthPage from './pages/CustomerAuthPage'
 import HomePage from './pages/HomePage'
@@ -8,6 +9,7 @@ import RoleSelectPage from './pages/RoleSelectPage'
 import { apiRequest } from './utils/api'
 
 const CUSTOMER_STORAGE_KEY = 'barbershop_logged_in_customer'
+const ADMIN_TOKEN_STORAGE_KEY = 'barbershop_admin_token'
 
 function loadStoredCustomer() {
   try {
@@ -18,10 +20,19 @@ function loadStoredCustomer() {
   }
 }
 
+function loadStoredAdminToken() {
+  try {
+    return sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
 function App() {
   const [services, setServices] = useState([])
   const [servicesError, setServicesError] = useState('')
   const [loggedInCustomer, setLoggedInCustomer] = useState(loadStoredCustomer)
+  const [adminToken, setAdminToken] = useState(loadStoredAdminToken)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -36,6 +47,20 @@ function App() {
       }
     } catch {
       // نادیده گرفتن خطای احتمالی مرورگر در حالت Private
+    }
+  }
+
+  function updateAdminToken(token) {
+    const normalized = token || ''
+    setAdminToken(normalized)
+    try {
+      if (normalized) {
+        sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, normalized)
+      } else {
+        sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY)
+      }
+    } catch {
+      //
     }
   }
 
@@ -80,6 +105,16 @@ function App() {
     navigate('/services')
   }
 
+  function handleAdminLoginSuccess(token) {
+    updateAdminToken(token)
+    navigate('/owner')
+  }
+
+  function handleAdminLogout() {
+    updateAdminToken('')
+    navigate('/owner/login')
+  }
+
   function handleOpenBooking() {
     if (loggedInCustomer?.id) {
       apiRequest(`/api/customers/${loggedInCustomer.id}`)
@@ -108,7 +143,7 @@ function App() {
             element={
               <RoleSelectPage
                 onSelectCustomer={() => navigate('/login')}
-                onSelectOwner={() => navigate('/owner')}
+                onSelectOwner={() => navigate(adminToken ? '/owner' : '/owner/login')}
               />
             }
           />
@@ -156,7 +191,31 @@ function App() {
               />
             }
           />
-          <Route path="/owner" element={<OwnerPage onBack={goToRoleSelect} />} />
+          <Route
+            path="/owner/login"
+            element={
+              adminToken ? (
+                <Navigate to="/owner" replace />
+              ) : (
+                <AdminLoginPage onSuccess={handleAdminLoginSuccess} onBack={goToRoleSelect} />
+              )
+            }
+          />
+          <Route
+            path="/owner"
+            element={
+              adminToken ? (
+                <OwnerPage
+                  adminToken={adminToken}
+                  onUnauthorized={handleAdminLogout}
+                  onLogout={handleAdminLogout}
+                  onBack={goToRoleSelect}
+                />
+              ) : (
+                <Navigate to="/owner/login" replace />
+              )
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

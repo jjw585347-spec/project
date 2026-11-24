@@ -15,7 +15,7 @@ function loadInitialOwnerDate() {
   }
 }
 
-export default function OwnerPage({ onBack }) {
+export default function OwnerPage({ adminToken, onUnauthorized, onLogout, onBack }) {
   const navigate = useNavigate()
   const [ownerDate, setOwnerDate] = useState(loadInitialOwnerDate)
   const [appointments, setAppointments] = useState([])
@@ -32,6 +32,24 @@ export default function OwnerPage({ onBack }) {
     }
   }
 
+  async function handleLogoutClick() {
+    if (adminToken) {
+      try {
+        await apiRequest('/api/admin/logout', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        })
+      } catch {
+        // در صورت خطای شبکه نیز نشست محلی پاک می‌شود
+      }
+    }
+    if (onLogout) {
+      onLogout()
+    }
+  }
+
   useEffect(() => {
     try {
       if (ownerDate) {
@@ -42,19 +60,30 @@ export default function OwnerPage({ onBack }) {
     }
   }, [ownerDate])
 
-  const loadAppointments = useCallback(async (targetDate) => {
-    if (!targetDate) return
-    setLoading(true)
-    setError('')
-    try {
-      const data = await apiRequest(`/api/appointments?date=${encodeURIComponent(targetDate)}`)
-      setAppointments(data.appointments || [])
-    } catch (err) {
-      setError(err.message || 'خطا در دریافت لیست نوبت‌ها')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const loadAppointments = useCallback(
+    async (targetDate) => {
+      if (!targetDate || !adminToken) return
+      setLoading(true)
+      setError('')
+      try {
+        const data = await apiRequest(`/api/appointments?date=${encodeURIComponent(targetDate)}`, {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        })
+        setAppointments(data.appointments || [])
+      } catch (err) {
+        if (err.status === 401 && onUnauthorized) {
+          onUnauthorized()
+          return
+        }
+        setError(err.message || 'خطا در دریافت لیست نوبت‌ها')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [adminToken, onUnauthorized]
+  )
 
   useEffect(() => {
     loadAppointments(ownerDate)
@@ -71,10 +100,17 @@ export default function OwnerPage({ onBack }) {
     try {
       await apiRequest(`/api/appointments/${appointmentId}/cancel`, {
         method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
       })
       // تازه‌سازی کامل لیست نوبت‌ها از سرور پس از لغو
       await loadAppointments(ownerDate)
     } catch (err) {
+      if (err.status === 401 && onUnauthorized) {
+        onUnauthorized()
+        return
+      }
       setError(err.message || 'خطا در لغو نوبت')
     } finally {
       setCancellingId(null)
@@ -83,13 +119,17 @@ export default function OwnerPage({ onBack }) {
 
   return (
     <div className="owner-container">
-      <h1 className="title">لیست نوبت‌های آرایشگاه</h1>
+      <h1 className="title">پنل مدیریت — لیست نوبت‌های آرایشگاه</h1>
 
       <div className="owner-toolbar">
         <div className="owner-date-box">
           <label htmlFor="ownerDatePicker">انتخاب روز:</label>
           <JalaliDatePicker id="ownerDatePicker" value={ownerDate} onChange={setOwnerDate} />
         </div>
+
+        <button type="button" className="secondary-btn" onClick={handleLogoutClick}>
+          خروج از پنل مدیریت
+        </button>
       </div>
 
       {error && <p className="error">{error}</p>}

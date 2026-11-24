@@ -34,7 +34,7 @@
 - `POST /api/customers/register`: ایجاد حساب کاربری جدید برای مشتری.
 - `POST /api/customers/login`: ورود مشتری قبلی به حساب کاربری.
 - `GET /api/customers/{id}`: دریافت اطلاعات حساب یک مشتری با شناسه او.
-- `GET /api/appointments?date=YYYY-MM-DD`: دریافت لیست نوبت‌های یک تاریخ مشخص (برای تشخیص ساعت‌های رزروشده در آن روز).
+- `GET /api/appointments/booked-slots?date=YYYY-MM-DD`: دریافت لیست ساعت‌های رزروشده (فعال) در یک تاریخ مشخص بدون افشای اطلاعات شخصی مشتری‌ها.
 - `POST /api/appointments`: اعتبارسنجی و ثبت یک نوبت جدید برای مشتری.
 
 ## فعلاً پشتیبانی نمی‌شود

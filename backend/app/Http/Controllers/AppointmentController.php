@@ -29,7 +29,7 @@ class AppointmentController extends Controller
     ];
 
     /**
-     * لیست نوبت‌های یک روز (مرتب بر اساس ساعت): GET /api/appointments?date=YYYY-MM-DD
+     * لیست نوبت‌های یک روز (مخصوص پنل مدیریت - مرتب بر اساس ساعت): GET /api/appointments?date=YYYY-MM-DD
      */
     public function index(Request $request): JsonResponse
     {
@@ -45,6 +45,31 @@ class AppointmentController extends Controller
             [
                 'date' => $date,
                 'appointments' => $appointments,
+            ],
+            200,
+            [],
+            JSON_UNESCAPED_UNICODE
+        );
+    }
+
+    /**
+     * دریافت فقط ساعت‌های رزروشده (فعال) در یک تاریخ برای فرم رزرو مشتری (بدون اطلاعات شخصی مشتری‌ها):
+     * GET /api/appointments/booked-slots?date=YYYY-MM-DD
+     */
+    public function bookedSlots(Request $request): JsonResponse
+    {
+        $date = $request->query('date') ?: Carbon::now('Asia/Tehran')->toDateString();
+
+        $slots = Appointment::whereDate('appointment_date', $date)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('appointment_time', 'asc')
+            ->pluck('appointment_time')
+            ->values();
+
+        return response()->json(
+            [
+                'date' => $date,
+                'booked_slots' => $slots,
             ],
             200,
             [],
