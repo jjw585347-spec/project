@@ -63,10 +63,10 @@ export default function AdminLoginPage({ onSuccess, onBack }) {
 
       <form className="booking-form" onSubmit={handleSubmit} noValidate>
         <div className="form-group">
-          <label htmlFor="adminPhone">شماره موبایل مدیر</label>
+          <label htmlFor="adminPhone">نام کاربری مدیر</label>
           <input
             id="adminPhone"
-            type="tel"
+            type="text"
             className={fieldErrors.phone ? 'input-invalid' : ''}
             aria-invalid={Boolean(fieldErrors.phone)}
             value={phone}
@@ -74,7 +74,7 @@ export default function AdminLoginPage({ onSuccess, onBack }) {
               setPhone(e.target.value)
               clearFieldError('phone')
             }}
-            placeholder="مثلاً 09120000000"
+            placeholder="نام کاربری مدیر را وارد کنید"
           />
           {fieldErrors.phone && (
             <p className="field-error" role="alert">

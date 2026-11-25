@@ -90,7 +90,14 @@ export default function BookingPage({ customer, services, onBack }) {
   ])
 
   useEffect(() => {
-    if (!serviceId && services.length > 0) {
+    if (services.length === 0) {
+      if (serviceId !== '') {
+        setServiceId('')
+      }
+      return
+    }
+    const existsInActiveServices = services.some((s) => String(s.id) === String(serviceId))
+    if (!serviceId || !existsInActiveServices) {
       setServiceId(String(services[0].id))
     }
   }, [services, serviceId])

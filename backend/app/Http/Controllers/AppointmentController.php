@@ -116,14 +116,17 @@ class AppointmentController extends Controller
             $errors['customer_phone'] = 'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با ۰۹ شروع می‌شود (مثلاً 09123456789) وارد کنید.';
         }
 
-        // ۳. اعتبارسنجی خدمت انتخاب‌شده
-        if (
-            $serviceId === null ||
-            $serviceId === '' ||
-            !is_numeric($serviceId) ||
-            !Service::where('id', (int) $serviceId)->exists()
-        ) {
+        // ۳. اعتبارسنجی خدمت انتخاب‌شده (باید وجود داشته باشد و فعال باشد)
+        $selectedService = (
+            $serviceId !== null &&
+            $serviceId !== '' &&
+            is_numeric($serviceId)
+        ) ? Service::find((int) $serviceId) : null;
+
+        if (!$selectedService) {
             $errors['service_id'] = 'لطفاً یکی از خدمات معتبر آرایشگاه را انتخاب کنید.';
+        } elseif (!$selectedService->is_active) {
+            $errors['service_id'] = 'خدمت انتخاب‌شده در حال حاضر غیرفعال است و امکان رزرو آن وجود ندارد.';
         }
 
         // ۴. اعتبارسنجی تاریخ نوبت

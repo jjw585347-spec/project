@@ -28,4 +28,11 @@ Route::middleware(EnsureAdminAuthenticated::class)->group(function () {
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
     Route::get('/appointments', [AppointmentController::class, 'index']);
     Route::patch('/appointments/{id}/cancel', [AppointmentController::class, 'cancel']);
+
+    // مدیریت خدمات آرایشگاه توسط صاحب کار
+    Route::get('/admin/services', [ServiceController::class, 'adminIndex']);
+    Route::post('/admin/services', [ServiceController::class, 'store']);
+    Route::put('/admin/services/{id}', [ServiceController::class, 'update']);
+    Route::patch('/admin/services/{id}/status', [ServiceController::class, 'toggleStatus']);
+    Route::delete('/admin/services/{id}', [ServiceController::class, 'destroy']);
 });

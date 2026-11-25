@@ -32,21 +32,25 @@ export default function HomePage({ services, error, customer, onOpenBooking, onB
 
       {error && <p className="error">{error}</p>}
 
-      <div className="cards">
-        {services.map((service) => (
-          <div className="card" key={service.id}>
-            <h2 className="card-name">{service.name}</h2>
-            <div className="card-row">
-              <span>قیمت</span>
-              <strong>{formatPrice(service.price)} تومان</strong>
+      {!error && services.length === 0 ? (
+        <p className="owner-empty">در حال حاضر هیچ خدمت فعالی برای نمایش وجود ندارد.</p>
+      ) : (
+        <div className="cards">
+          {services.map((service) => (
+            <div className="card" key={service.id}>
+              <h2 className="card-name">{service.name}</h2>
+              <div className="card-row">
+                <span>قیمت</span>
+                <strong>{formatPrice(service.price)} تومان</strong>
+              </div>
+              <div className="card-row">
+                <span>مدت زمان</span>
+                <strong>{Number(service.duration).toLocaleString('fa-IR')} دقیقه</strong>
+              </div>
             </div>
-            <div className="card-row">
-              <span>مدت زمان</span>
-              <strong>{Number(service.duration).toLocaleString('fa-IR')} دقیقه</strong>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="booking-action">
         <button type="button" className="primary-btn" onClick={handleBookingClick}>

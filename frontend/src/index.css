@@ -649,6 +649,101 @@ option {
   font-weight: bold;
 }
 
+.active-badge {
+  display: inline-block;
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border-radius: 10px;
+  padding: 6px 16px;
+  font-size: 19px;
+  font-weight: bold;
+}
+
+.owner-tabs-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.owner-tabs {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-services-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.admin-service-form {
+  margin-bottom: 4px;
+}
+
+.admin-section-title {
+  margin: 0 0 18px;
+  font-size: 26px;
+  font-weight: bold;
+  color: var(--text-dark);
+}
+
+.admin-service-fields {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: 16px;
+}
+
+.admin-form-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.admin-feedback-success {
+  text-align: center;
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border-radius: 14px;
+  padding: 14px 20px;
+  margin: 0;
+  font-size: 21px;
+  font-weight: bold;
+  box-shadow: 0 4px 16px rgba(17, 24, 39, 0.07);
+}
+
+.admin-services-grid {
+  grid-template-columns: 1.5fr 1.1fr 0.9fr 0.9fr 2fr;
+}
+
+.admin-service-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.small-action-btn {
+  padding: 7px 16px;
+  font-size: 18px;
+  border-radius: 10px;
+}
+
+.protected-service-hint {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--surface-subtle);
+  color: var(--text-muted);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 17px;
+  font-weight: bold;
+}
+
 .owner-empty {
   text-align: center;
   font-size: 22px;
@@ -886,5 +981,25 @@ option {
   .cancel-btn {
     width: 100%;
     margin-top: 4px;
+  }
+
+  .owner-tabs-bar,
+  .owner-tabs,
+  .admin-form-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .admin-service-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-service-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .small-action-btn {
+    width: 100%;
   }
 }

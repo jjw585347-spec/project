@@ -80,6 +80,12 @@ function App() {
     fetchServices()
   }, [])
 
+  useEffect(() => {
+    if (location.pathname === '/services' || location.pathname === '/booking') {
+      fetchServices()
+    }
+  }, [location.pathname])
+
   function goToRoleSelect() {
     if (location.pathname !== '/') {
       navigate('/')
@@ -210,6 +216,7 @@ function App() {
                   onUnauthorized={handleAdminLogout}
                   onLogout={handleAdminLogout}
                   onBack={goToRoleSelect}
+                  onServicesChanged={fetchServices}
                 />
               ) : (
                 <Navigate to="/owner/login" replace />

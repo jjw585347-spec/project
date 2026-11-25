@@ -152,4 +152,24 @@ class AdminAuthApiTest extends TestCase
             'status' => 'active',
         ]);
     }
+
+    /**
+     * تست ۴: ورود صاحب آرایشگاه با نام کاربری متنی (غیر از شماره موبایل) تعریف‌شده در تنظیمات
+     */
+    public function test_admin_login_succeeds_with_username_identifier(): void
+    {
+        config([
+            'admin.phone' => 'custom_admin_user',
+            'admin.password' => 'TestPass123',
+        ]);
+
+        $response = $this->postJson('/api/admin/login', [
+            'phone' => 'custom_admin_user',
+            'password' => 'TestPass123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['message', 'token', 'admin' => ['id', 'phone']])
+            ->assertJsonPath('admin.phone', 'custom_admin_user');
+    }
 }

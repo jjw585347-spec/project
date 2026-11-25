@@ -45,15 +45,14 @@ class AdminAuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
-        $phone = CustomerController::normalizeDigits((string) $request->input('phone', ''));
-        $password = CustomerController::normalizeDigits((string) $request->input('password', ''));
+        $rawIdentifier = $request->input('phone', $request->input('username', ''));
+        $phone = trim(CustomerController::normalizeDigits((string) $rawIdentifier));
+        $password = trim(CustomerController::normalizeDigits((string) $request->input('password', '')));
 
         $errors = [];
 
         if ($phone === '') {
-            $errors['phone'] = 'لطفاً شماره موبایل مدیر را وارد کنید.';
-        } elseif (!preg_match('/^09\d{9}$/', $phone)) {
-            $errors['phone'] = 'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با ۰۹ شروع می‌شود وارد کنید.';
+            $errors['phone'] = 'لطفاً نام کاربری مدیر را وارد کنید.';
         }
 
         if ($password === '') {

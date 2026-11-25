@@ -360,6 +360,30 @@ class AppointmentApiTest extends TestCase
         $nonExistentServiceResponse->assertStatus(422)
             ->assertJsonStructure(['message', 'errors' => ['service_id']])
             ->assertJsonPath('errors.service_id', 'لطفاً یکی از خدمات معتبر آرایشگاه را انتخاب کنید.');
+
+        // ج) خدمت غیرفعال در دیتابیس قابل رزرو نیست
+        $inactiveService = Service::create([
+            'name' => 'خدمت غیرفعال تستی',
+            'price' => 300000,
+            'duration' => 30,
+            'is_active' => false,
+        ]);
+
+        $inactiveServiceResponse = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => $customer->phone,
+            'service_id' => $inactiveService->id,
+            'appointment_date' => $futureDate,
+            'appointment_time' => '11:00',
+        ]);
+
+        $inactiveServiceResponse->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['service_id']])
+            ->assertJsonPath(
+                'errors.service_id',
+                'خدمت انتخاب‌شده در حال حاضر غیرفعال است و امکان رزرو آن وجود ندارد.'
+            );
     }
 
     /**
