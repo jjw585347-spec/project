@@ -28,12 +28,12 @@ export async function apiRequest(url, options = {}) {
   let response
   try {
     response = await fetch(url, {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
         ...(options.headers || {}),
       },
-      ...options,
     })
   } catch {
     throw new Error(OFFLINE_ERROR_MESSAGE)

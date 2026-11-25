@@ -53,12 +53,15 @@ class AppointmentController extends Controller
     }
 
     /**
-     * دریافت فقط ساعت‌های رزروشده (فعال) در یک تاریخ برای فرم رزرو مشتری (بدون اطلاعات شخصی مشتری‌ها):
+     * دریافت فقط ساعت‌های رزروشده (فعال)، ساعت کاری، وضعیت تعطیلی و مرخصی در یک تاریخ برای فرم رزرو مشتری (بدون اطلاعات شخصی مشتری‌ها):
      * GET /api/appointments/booked-slots?date=YYYY-MM-DD
      */
     public function bookedSlots(Request $request): JsonResponse
     {
-        $date = $request->query('date') ?: Carbon::now('Asia/Tehran')->toDateString();
+        $rawDate = CustomerController::normalizeDigits((string) $request->query('date', ''));
+        $date = self::isValidGregorianDate($rawDate)
+            ? $rawDate
+            : Carbon::now('Asia/Tehran')->toDateString();
 
         $slots = Appointment::whereDate('appointment_date', $date)
             ->where('status', '!=', 'cancelled')
@@ -66,10 +69,19 @@ class AppointmentController extends Controller
             ->pluck('appointment_time')
             ->values();
 
+        $scheduleStatus = WorkingScheduleController::getDateScheduleStatus($date);
+
         return response()->json(
             [
                 'date' => $date,
                 'booked_slots' => $slots,
+                'is_closed' => $scheduleStatus['is_closed'],
+                'close_reason' => $scheduleStatus['close_reason'],
+                'day_name' => $scheduleStatus['day_name'],
+                'start_time' => $scheduleStatus['start_time'],
+                'end_time' => $scheduleStatus['end_time'],
+                'working_slots' => $scheduleStatus['working_slots'],
+                'leave_slots' => $scheduleStatus['leave_slots'],
             ],
             200,
             [],
@@ -129,11 +141,12 @@ class AppointmentController extends Controller
             $errors['service_id'] = 'خدمت انتخاب‌شده در حال حاضر غیرفعال است و امکان رزرو آن وجود ندارد.';
         }
 
-        // ۴. اعتبارسنجی تاریخ نوبت
+        // ۴. اعتبارسنجی تاریخ نوبت و بررسی روز تعطیل هفتگی یا تاریخ تعطیل خاص (R7)
         $isDateFormatValid = self::isValidGregorianDate($rawDate);
         $now = Carbon::now('Asia/Tehran');
         $today = $now->copy()->startOfDay();
         $appointmentDate = null;
+        $scheduleStatus = null;
 
         if (!$isDateFormatValid) {
             $errors['appointment_date'] = 'لطفاً یک تاریخ معتبر برای نوبت انتخاب کنید.';
@@ -141,25 +154,44 @@ class AppointmentController extends Controller
             $appointmentDate = Carbon::createFromFormat('Y-m-d', $rawDate, 'Asia/Tehran')->startOfDay();
             if ($appointmentDate->lessThan($today)) {
                 $errors['appointment_date'] = 'ثبت نوبت ناموفق بود: تاریخ انتخاب‌شده مربوط به گذشته است.';
+            } else {
+                $scheduleStatus = WorkingScheduleController::getDateScheduleStatus($rawDate);
+                if ($scheduleStatus['is_closed']) {
+                    $reasonText = $scheduleStatus['close_reason'] ?: 'آرایشگاه در این روز تعطیل است.';
+                    $errors['appointment_date'] = "ثبت نوبت ناموفق بود: {$reasonText} لطفاً روز دیگری را انتخاب کنید.";
+                }
             }
         }
 
-        // ۵. اعتبارسنجی ساعت نوبت
-        if (!in_array($rawTime, self::ALLOWED_TIME_SLOTS, true)) {
+        // ۵. اعتبارسنجی ساعت نوبت با ساعت کاری روز، مرخصی ساعتی (R7)، زمان گذشته (R3) و رزرو قبلی
+        if (!WorkingScheduleController::isValidHalfHourTime($rawTime)) {
+            $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده معتبر نیست. ساعت کاری آرایشگاه از ۱۰:۰۰ تا ۲۰:۰۰ است.';
+        } elseif ($scheduleStatus !== null && !$scheduleStatus['is_closed']) {
+            if (!in_array($rawTime, $scheduleStatus['working_slots'], true)) {
+                $errors['appointment_time'] = "ثبت نوبت ناموفق بود: ساعت انتخاب‌شده خارج از ساعت کاری آرایشگاه در روز {$scheduleStatus['day_name']} ({$scheduleStatus['start_time']} تا {$scheduleStatus['end_time']}) است.";
+            } elseif (in_array($rawTime, $scheduleStatus['leave_slots'], true)) {
+                $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: در این بازه زمانی مرخصی ثبت شده است و امکان رزرو نوبت وجود ندارد.';
+            } else {
+                $appointmentDateTime = Carbon::createFromFormat('Y-m-d H:i', $rawDate . ' ' . $rawTime, 'Asia/Tehran');
+                if ($appointmentDate->equalTo($today) && $appointmentDateTime->lessThanOrEqualTo($now)) {
+                    $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده در امروز گذشته است. لطفاً ساعت دیگری در ادامه امروز یا روز دیگری را انتخاب کنید.';
+                } else {
+                    $alreadyBooked = Appointment::whereDate('appointment_date', $rawDate)
+                        ->where('appointment_time', $rawTime)
+                        ->where('status', '!=', 'cancelled')
+                        ->exists();
+
+                    if ($alreadyBooked) {
+                        $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: این ساعت در این روز قبلاً رزرو شده است. لطفاً ساعت یا روز دیگری را انتخاب کنید.';
+                    }
+                }
+            }
+        } elseif (!in_array($rawTime, self::ALLOWED_TIME_SLOTS, true)) {
             $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده معتبر نیست. ساعت کاری آرایشگاه از ۱۰:۰۰ تا ۲۰:۰۰ است.';
         } elseif ($isDateFormatValid && $appointmentDate !== null) {
             $appointmentDateTime = Carbon::createFromFormat('Y-m-d H:i', $rawDate . ' ' . $rawTime, 'Asia/Tehran');
             if ($appointmentDate->equalTo($today) && $appointmentDateTime->lessThanOrEqualTo($now)) {
                 $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده در امروز گذشته است. لطفاً ساعت دیگری در ادامه امروز یا روز دیگری را انتخاب کنید.';
-            } elseif (!$appointmentDate->lessThan($today)) {
-                $alreadyBooked = Appointment::whereDate('appointment_date', $rawDate)
-                    ->where('appointment_time', $rawTime)
-                    ->where('status', '!=', 'cancelled')
-                    ->exists();
-
-                if ($alreadyBooked) {
-                    $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: این ساعت در این روز قبلاً رزرو شده است. لطفاً ساعت یا روز دیگری را انتخاب کنید.';
-                }
             }
         }
 

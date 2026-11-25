@@ -33,6 +33,18 @@ class AppointmentApiTest extends TestCase
 
     private function createTestCustomerAndService(): array
     {
+        // در تست‌های عمومی نوبت، همه روزهای هفته را باز می‌گذاریم تا مستقل از روز اجرای تست (مثلاً اگر فردا جمعه باشد) کار کنند
+        for ($d = 0; $d <= 6; $d++) {
+            \App\Models\WorkingHour::updateOrCreate(
+                ['day_of_week' => $d],
+                [
+                    'start_time' => '10:00',
+                    'end_time' => '20:00',
+                    'is_closed' => false,
+                ]
+            );
+        }
+
         $customer = Customer::create([
             'name' => 'امیر محمدی',
             'phone' => '09121234567',

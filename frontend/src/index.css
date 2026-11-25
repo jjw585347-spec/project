@@ -806,6 +806,193 @@ option {
   margin-top: 2px;
 }
 
+.day-closed-notice {
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  border-radius: 14px;
+  padding: 18px 20px;
+  font-size: 21px;
+  font-weight: bold;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(220, 38, 38, 0.1);
+}
+
+/* ==================== مدیریت ساعت کاری، تعطیلات و مرخصی (R7) ==================== */
+.schedule-warning-box {
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.14), 0 0 0 1.5px var(--danger-btn);
+}
+
+.schedule-warning-title {
+  margin: 0 0 10px;
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--error-text);
+}
+
+.schedule-warning-text {
+  margin: 0 0 14px;
+  font-size: 20px;
+  line-height: 1.6;
+}
+
+.schedule-conflict-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schedule-conflict-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  background-color: #ffffff;
+  color: var(--text-dark);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 19px;
+}
+
+.weekly-schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.weekly-day-row {
+  display: grid;
+  grid-template-columns: 120px 150px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background-color: var(--surface-subtle);
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.08);
+}
+
+.weekly-day-closed {
+  background-color: #fff5f5;
+}
+
+.weekly-day-name {
+  font-size: 22px;
+}
+
+.weekly-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.weekly-checkbox-label input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--danger-btn);
+  cursor: pointer;
+}
+
+.weekly-day-times {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.weekly-time-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weekly-time-field label {
+  font-size: 19px;
+  font-weight: bold;
+  color: var(--text-muted);
+}
+
+.weekly-time-field select {
+  font-size: 20px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: var(--text-dark);
+  box-shadow: 0 2px 6px rgba(17, 24, 39, 0.06), 0 0 0 1px rgba(17, 24, 39, 0.14);
+}
+
+.weekly-day-error {
+  grid-column: 1 / -1;
+}
+
+.admin-schedule-two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 16px;
+}
+
+.admin-schedule-four-cols {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 0.9fr 1.4fr;
+  gap: 14px;
+}
+
+.schedule-sublist {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(17, 24, 39, 0.08);
+}
+
+.schedule-sublist-title {
+  margin: 0 0 12px;
+  font-size: 22px;
+  font-weight: bold;
+  color: var(--text-dark);
+}
+
+.schedule-sublist-empty {
+  margin: 0;
+  font-size: 20px;
+  color: var(--text-muted);
+}
+
+.schedule-items-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.schedule-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background-color: var(--surface-subtle);
+  font-size: 20px;
+}
+
+.schedule-item-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.schedule-item-reason {
+  color: var(--text-muted);
+  font-size: 19px;
+}
+
 /* ==================== کادر نمایش اطلاعات حساب مشتری در فرم نوبت ==================== */
 .account-info-box {
   background-color: var(--surface-subtle);
@@ -990,7 +1177,10 @@ option {
     flex-direction: column;
   }
 
-  .admin-service-fields {
+  .admin-service-fields,
+  .admin-schedule-two-cols,
+  .admin-schedule-four-cols,
+  .weekly-day-row {
     grid-template-columns: 1fr;
   }
 

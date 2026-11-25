@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\WorkingScheduleController;
 use App\Http\Middleware\EnsureAdminAuthenticated;
 use Illuminate\Support\Facades\Route;
 
@@ -35,4 +36,11 @@ Route::middleware(EnsureAdminAuthenticated::class)->group(function () {
     Route::put('/admin/services/{id}', [ServiceController::class, 'update']);
     Route::patch('/admin/services/{id}/status', [ServiceController::class, 'toggleStatus']);
     Route::delete('/admin/services/{id}', [ServiceController::class, 'destroy']);
+
+    // مدیریت ساعت کاری هفتگی، تاریخ‌های تعطیل و مرخصی‌های ساعتی توسط صاحب کار (R7)
+    Route::get('/admin/schedule', [WorkingScheduleController::class, 'index']);
+    Route::put('/admin/schedule/weekly', [WorkingScheduleController::class, 'updateWeekly']);
+    Route::post('/admin/schedule/holidays', [WorkingScheduleController::class, 'storeHoliday']);
+    Route::post('/admin/schedule/leaves', [WorkingScheduleController::class, 'storeLeave']);
+    Route::delete('/admin/schedule/time-offs/{id}', [WorkingScheduleController::class, 'destroyTimeOff']);
 });

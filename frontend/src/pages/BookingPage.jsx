@@ -41,6 +41,10 @@ export default function BookingPage({ customer, services, onBack }) {
   const [appointmentDate, setAppointmentDate] = useState(stored?.appointmentDate || '')
   const [appointmentTime, setAppointmentTime] = useState(stored?.appointmentTime || '10:00')
   const [bookedSlots, setBookedSlots] = useState([])
+  const [leaveSlots, setLeaveSlots] = useState([])
+  const [workingSlots, setWorkingSlots] = useState(TIME_SLOTS)
+  const [isDayClosed, setIsDayClosed] = useState(false)
+  const [closeReason, setCloseReason] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -102,28 +106,55 @@ export default function BookingPage({ customer, services, onBack }) {
     }
   }, [services, serviceId])
 
-  // دریافت ساعت‌های رزروشده در روز انتخابی
+  // دریافت ساعت‌های رزروشده، ساعت کاری روز، تعطیلی یا مرخصی در روز انتخابی (R7)
   useEffect(() => {
     if (!appointmentDate) {
       setBookedSlots([])
+      setLeaveSlots([])
+      setWorkingSlots(TIME_SLOTS)
+      setIsDayClosed(false)
+      setCloseReason('')
       return
     }
 
     apiRequest(`/api/appointments/booked-slots?date=${encodeURIComponent(appointmentDate)}`)
       .then((data) => {
         const activeTimes = Array.isArray(data.booked_slots) ? data.booked_slots : []
-        setBookedSlots(activeTimes)
+        const activeLeaves = Array.isArray(data.leave_slots) ? data.leave_slots : []
+        const dayWorkingSlots =
+          Array.isArray(data.working_slots) && data.working_slots.length > 0
+            ? data.working_slots
+            : TIME_SLOTS
+        const closed = Boolean(data.is_closed)
 
-        // اگر ساعت فعلی رزرو شده است، اولین ساعت آزاد را انتخاب کن
-        if (activeTimes.includes(appointmentTime)) {
-          const firstFree = TIME_SLOTS.find((slot) => !activeTimes.includes(slot))
-          if (firstFree) {
-            setAppointmentTime(firstFree)
+        setBookedSlots(activeTimes)
+        setLeaveSlots(activeLeaves)
+        setWorkingSlots(dayWorkingSlots)
+        setIsDayClosed(closed)
+        setCloseReason(data.close_reason || '')
+
+        if (!closed) {
+          const isCurrentUnavailable =
+            !dayWorkingSlots.includes(appointmentTime) ||
+            activeTimes.includes(appointmentTime) ||
+            activeLeaves.includes(appointmentTime)
+
+          if (isCurrentUnavailable) {
+            const firstFree = dayWorkingSlots.find(
+              (slot) => !activeTimes.includes(slot) && !activeLeaves.includes(slot)
+            )
+            if (firstFree) {
+              setAppointmentTime(firstFree)
+            }
           }
         }
       })
       .catch(() => {
         setBookedSlots([])
+        setLeaveSlots([])
+        setWorkingSlots(TIME_SLOTS)
+        setIsDayClosed(false)
+        setCloseReason('')
       })
   }, [appointmentDate])
 
@@ -264,6 +295,10 @@ export default function BookingPage({ customer, services, onBack }) {
               clearFieldError('appointment_time')
             }}
             bookedSlots={bookedSlots}
+            leaveSlots={leaveSlots}
+            availableSlots={workingSlots}
+            isDayClosed={isDayClosed}
+            closeReason={closeReason}
           />
           {fieldErrors.appointment_time && (
             <p className="field-error" role="alert">
@@ -275,8 +310,8 @@ export default function BookingPage({ customer, services, onBack }) {
         {formError && <p className="error">{formError}</p>}
 
         <div className="form-actions">
-          <button type="submit" className="primary-btn" disabled={submitting}>
-            {submitting ? 'در حال ثبت...' : 'ثبت نوبت'}
+          <button type="submit" className="primary-btn" disabled={submitting || isDayClosed}>
+            {submitting ? 'در حال ثبت...' : isDayClosed ? 'این روز تعطیل است' : 'ثبت نوبت'}
           </button>
         </div>
       </form>

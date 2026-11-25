@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AdminScheduleSection from '../components/AdminScheduleSection'
 import AdminServicesSection from '../components/AdminServicesSection'
 import JalaliDatePicker from '../components/JalaliDatePicker'
 import { apiRequest } from '../utils/api'
@@ -20,7 +21,10 @@ function loadInitialOwnerDate() {
 function loadInitialOwnerTab() {
   try {
     const saved = sessionStorage.getItem(OWNER_TAB_KEY)
-    return saved === 'services' ? 'services' : 'appointments'
+    if (saved === 'services' || saved === 'schedule') {
+      return saved
+    }
+    return 'appointments'
   } catch {
     return 'appointments'
   }
@@ -148,7 +152,9 @@ export default function OwnerPage({
       <h1 className="title">
         {activeTab === 'services'
           ? 'پنل مدیریت — مدیریت خدمات آرایشگاه'
-          : 'پنل مدیریت — لیست نوبت‌های آرایشگاه'}
+          : activeTab === 'schedule'
+            ? 'پنل مدیریت — ساعت کاری، تعطیلات و مرخصی'
+            : 'پنل مدیریت — لیست نوبت‌های آرایشگاه'}
       </h1>
 
       <div className="owner-tabs-bar">
@@ -167,6 +173,13 @@ export default function OwnerPage({
           >
             مدیریت خدمات
           </button>
+          <button
+            type="button"
+            className={activeTab === 'schedule' ? 'primary-btn' : 'secondary-btn'}
+            onClick={() => setActiveTab('schedule')}
+          >
+            ساعت کاری و مرخصی
+          </button>
         </div>
 
         <button type="button" className="secondary-btn" onClick={handleLogoutClick}>
@@ -180,6 +193,8 @@ export default function OwnerPage({
           onUnauthorized={onUnauthorized}
           onServicesChanged={onServicesChanged}
         />
+      ) : activeTab === 'schedule' ? (
+        <AdminScheduleSection adminToken={adminToken} onUnauthorized={onUnauthorized} />
       ) : (
         <>
           <div className="owner-toolbar">
