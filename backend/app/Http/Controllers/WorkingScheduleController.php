@@ -57,7 +57,7 @@ class WorkingScheduleController extends Controller
     }
 
     /**
-     * تولید بازه‌های ۳۰ دقیقه‌ای بین دو ساعت (از start_time تا end_time)
+     * تولید بازه‌های ۳۰ دقیقه‌ای شروع نوبت بین دو ساعت (از start_time تا قبل از end_time طبق R6)
      */
     public static function generateSlotsBetween(string $startTime, string $endTime): array
     {
@@ -68,18 +68,35 @@ class WorkingScheduleController extends Controller
         $startMinutes = self::timeToMinutes($startTime);
         $endMinutes = self::timeToMinutes($endTime);
 
-        if ($startMinutes > $endMinutes) {
+        if ($startMinutes >= $endMinutes) {
             return [];
         }
 
         $slots = [];
-        for ($m = $startMinutes; $m <= $endMinutes; $m += 30) {
-            $h = str_pad((string) intdiv($m, 60), 2, '0', STR_PAD_LEFT);
-            $min = str_pad((string) ($m % 60), 2, '0', STR_PAD_LEFT);
-            $slots[] = "{$h}:{$min}";
+        for ($m = $startMinutes; $m < $endMinutes; $m += 30) {
+            $slots[] = self::minutesToTime($m);
         }
 
         return $slots;
+    }
+
+    /**
+     * تبدیل دقیقه از ابتدای روز به رشته HH:MM
+     */
+    public static function minutesToTime(int $minutes): string
+    {
+        $h = str_pad((string) intdiv($minutes, 60), 2, '0', STR_PAD_LEFT);
+        $min = str_pad((string) ($minutes % 60), 2, '0', STR_PAD_LEFT);
+
+        return "{$h}:{$min}";
+    }
+
+    /**
+     * بررسی هم‌پوشانی دو بازه زمانی نیم‌باز [startA, endA) و [startB, endB) به دقیقه
+     */
+    public static function intervalsOverlap(int $startA, int $endA, int $startB, int $endB): bool
+    {
+        return $startA < $endB && $endA > $startB;
     }
 
     /**
@@ -357,9 +374,9 @@ class WorkingScheduleController extends Controller
             );
         }
 
-        // بررسی تداخل با نوبت‌های فعال از امروز به بعد (بدون لغو خودکار)
+        // بررسی تداخل با نوبت‌های فعال از امروز به بعد (بدون لغو خودکار - با احتساب مدت واقعی خدمات نوبت طبق R5 و R6)
         $todayStr = Carbon::now('Asia/Tehran')->toDateString();
-        $activeFutureAppointments = Appointment::with('service:id,name')
+        $activeFutureAppointments = Appointment::with(['service:id,name,duration', 'services:id,name,duration'])
             ->whereDate('appointment_date', '>=', $todayStr)
             ->where('status', '!=', 'cancelled')
             ->orderBy('appointment_date', 'asc')
@@ -376,18 +393,21 @@ class WorkingScheduleController extends Controller
                 continue;
             }
 
-            $allowedSlots = $rule['is_closed']
-                ? []
-                : self::generateSlotsBetween($rule['start_time'], $rule['end_time']);
+            $apptStartMin = self::timeToMinutes($appt->appointment_time);
+            $apptEndMin = $apptStartMin + max(1, $appt->total_duration);
+            $dayStartMin = self::timeToMinutes($rule['start_time']);
+            $dayEndMin = self::timeToMinutes($rule['end_time']);
 
-            if ($rule['is_closed'] || !in_array($appt->appointment_time, $allowedSlots, true)) {
+            if ($rule['is_closed'] || $apptStartMin < $dayStartMin || $apptEndMin > $dayEndMin) {
                 $conflictingAppointments[] = [
                     'id' => $appt->id,
                     'customer_name' => $appt->customer_name,
                     'customer_phone' => $appt->customer_phone,
                     'appointment_date' => $apptDateStr,
                     'appointment_time' => $appt->appointment_time,
-                    'service_name' => $appt->service?->name,
+                    'service_name' => $appt->services->isNotEmpty()
+                        ? $appt->services->pluck('name')->implode('، ')
+                        : $appt->service?->name,
                     'day_name' => self::DAY_NAMES[$dow] ?? '',
                 ];
             }
@@ -572,23 +592,31 @@ class WorkingScheduleController extends Controller
             'reason' => $reason !== '' ? $reason : null,
         ]);
 
-        // بررسی وجود نوبت‌های فعال از قبل ثبت‌شده در بازه مرخصی (بدون لغو خودکار)
-        $activeOnDate = Appointment::with('service:id,name')
+        // بررسی وجود نوبت‌های فعال از قبل ثبت‌شده در بازه مرخصی (بدون لغو خودکار - با احتساب مدت واقعی خدمات نوبت)
+        $activeOnDate = Appointment::with(['service:id,name,duration', 'services:id,name,duration'])
             ->whereDate('appointment_date', $rawDate)
             ->where('status', '!=', 'cancelled')
             ->orderBy('appointment_time', 'asc')
             ->get();
 
+        $leaveStartMin = self::timeToMinutes($startTime);
+        $leaveEndMin = self::timeToMinutes($endTime);
+
         $conflictingAppointments = [];
         foreach ($activeOnDate as $appt) {
-            if (self::isSlotInsideLeave($appt->appointment_time, $startTime, $endTime)) {
+            $apptStartMin = self::timeToMinutes($appt->appointment_time);
+            $apptEndMin = $apptStartMin + max(1, $appt->total_duration);
+
+            if (self::intervalsOverlap($apptStartMin, $apptEndMin, $leaveStartMin, $leaveEndMin)) {
                 $conflictingAppointments[] = [
                     'id' => $appt->id,
                     'customer_name' => $appt->customer_name,
                     'customer_phone' => $appt->customer_phone,
                     'appointment_date' => $rawDate,
                     'appointment_time' => $appt->appointment_time,
-                    'service_name' => $appt->service?->name,
+                    'service_name' => $appt->services->isNotEmpty()
+                        ? $appt->services->pluck('name')->implode('، ')
+                        : $appt->service?->name,
                 ];
             }
         }

@@ -806,6 +806,58 @@ option {
   margin-top: 2px;
 }
 
+.time-slot-end-hint {
+  font-size: 14px;
+  font-weight: normal;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.slot-hint-notice {
+  background-color: var(--surface-subtle);
+  color: var(--text-muted);
+  border-radius: 14px;
+  padding: 16px 18px;
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.1);
+}
+
+/* ==================== انتخاب یک یا چند خدمت در فرم رزرو (R8) ==================== */
+.service-multi-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+  border-radius: 14px;
+}
+
+.service-multi-list.input-invalid {
+  padding: 10px;
+  box-shadow: 0 0 0 2px var(--danger-btn), 0 2px 8px rgba(220, 38, 38, 0.12);
+}
+
+.service-slot-card {
+  padding: 12px 10px;
+  text-align: center;
+  gap: 4px;
+}
+
+.selected-services-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background-color: var(--surface-subtle);
+  color: var(--text-dark);
+  font-size: 19px;
+  box-shadow: 0 0 0 1px rgba(13, 101, 45, 0.18);
+}
+
 .day-closed-notice {
   background-color: var(--error-bg);
   color: var(--error-text);

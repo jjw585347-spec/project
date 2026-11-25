@@ -24,13 +24,20 @@ class ServiceController extends Controller
     }
 
     /**
-     * شرط شمارش فقط نوبت‌های فعال (نادیده گرفتن نوبت‌های لغوشده)
+     * شرط شمارش فقط نوبت‌های فعال (چه به عنوان خدمت اصلی و چه در نوبت‌های چندخدمتی - نادیده گرفتن نوبت‌های لغوشده)
      */
     private static function activeAppointmentsCountConstraint(): array
     {
         return [
             'appointments' => function ($query) {
-                $query->where('status', '!=', 'cancelled');
+                $query->where('status', '!=', 'cancelled')
+                    ->orWhereExists(function ($sub) {
+                        $sub->selectRaw('1')
+                            ->from('appointment_service')
+                            ->join('appointments as a2', 'a2.id', '=', 'appointment_service.appointment_id')
+                            ->whereColumn('appointment_service.service_id', 'services.id')
+                            ->where('a2.status', '!=', 'cancelled');
+                    });
             },
         ];
     }
@@ -266,7 +273,11 @@ class ServiceController extends Controller
             );
         }
 
-        if ($service->appointments_count > 0) {
+        $hasActiveMultiServiceAppointments = $service->multiServiceAppointments()
+            ->where('appointments.status', '!=', 'cancelled')
+            ->exists();
+
+        if ($service->appointments_count > 0 || $hasActiveMultiServiceAppointments) {
             return response()->json(
                 [
                     'message' => 'این خدمت دارای نوبت ثبت‌شده است و قابل حذف نیست؛ فقط می‌توانید آن را غیرفعال کنید.',
@@ -278,6 +289,7 @@ class ServiceController extends Controller
         }
 
         // اگر فقط نوبت‌های لغوشده قدیمی برای این خدمت وجود داشت، قبل از حذف خدمت پاک می‌شوند
+        $service->multiServiceAppointments()->where('appointments.status', 'cancelled')->detach();
         $service->appointments()->where('status', 'cancelled')->delete();
         $service->delete();
 

@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import JalaliDatePicker from '../components/JalaliDatePicker'
 import TimeSlotPicker from '../components/TimeSlotPicker'
 import { apiRequest } from '../utils/api'
-import { formatGregorianToJalaliDisplay } from '../utils/jalali'
-import { formatPrice, TIME_SLOTS, toPersianDigits } from '../utils/persian'
+import { formatGregorianToJalaliDisplay, getTodayIsoDate } from '../utils/jalali'
+import {
+  formatPrice,
+  minutesToTime,
+  TIME_SLOTS,
+  timeToMinutes,
+  toPersianDigits,
+} from '../utils/persian'
 
 const BOOKING_STATE_KEY = 'barbershop_booking_page_state'
 
@@ -15,6 +21,10 @@ function loadStoredBookingState() {
   } catch {
     return null
   }
+}
+
+function intervalsOverlap(startA, endA, startB, endB) {
+  return startA < endB && endA > startB
 }
 
 export default function BookingPage({ customer, services, onBack }) {
@@ -35,16 +45,32 @@ export default function BookingPage({ customer, services, onBack }) {
   const [customerPhone, setCustomerPhone] = useState(
     stored?.customerPhone !== undefined ? stored.customerPhone : customer?.phone || ''
   )
-  const [serviceId, setServiceId] = useState(
-    stored?.serviceId || (services[0]?.id ? String(services[0].id) : '')
-  )
+
+  // پشتیبانی از انتخاب یک یا چند خدمت (گام اول طبق R8)
+  const [selectedServiceIds, setSelectedServiceIds] = useState(() => {
+    if (Array.isArray(stored?.selectedServiceIds) && stored.selectedServiceIds.length > 0) {
+      return stored.selectedServiceIds.map(String)
+    }
+    if (stored?.serviceId) {
+      return [String(stored.serviceId)]
+    }
+    return services[0]?.id ? [String(services[0].id)] : []
+  })
+
   const [appointmentDate, setAppointmentDate] = useState(stored?.appointmentDate || '')
-  const [appointmentTime, setAppointmentTime] = useState(stored?.appointmentTime || '10:00')
-  const [bookedSlots, setBookedSlots] = useState([])
-  const [leaveSlots, setLeaveSlots] = useState([])
-  const [workingSlots, setWorkingSlots] = useState(TIME_SLOTS)
-  const [isDayClosed, setIsDayClosed] = useState(false)
-  const [closeReason, setCloseReason] = useState('')
+  const [appointmentTime, setAppointmentTime] = useState(stored?.appointmentTime || '')
+
+  // وضعیت برنامه کاری، مرخصی‌ها و بازه‌های رزروشده در روز انتخابی
+  const [daySchedule, setDaySchedule] = useState({
+    startTime: '10:00',
+    endTime: '20:00',
+    workingSlots: TIME_SLOTS,
+    bookedIntervals: [],
+    hourlyLeaves: [],
+    isClosed: false,
+    closeReason: '',
+  })
+
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -67,6 +93,42 @@ export default function BookingPage({ customer, services, onBack }) {
     }
   }, [customer])
 
+  // هماهنگ‌سازی لیست خدمات انتخاب‌شده با خدمات فعال موجود
+  useEffect(() => {
+    if (services.length === 0) {
+      if (selectedServiceIds.length > 0) {
+        setSelectedServiceIds([])
+      }
+      return
+    }
+    const activeIdSet = new Set(services.map((s) => String(s.id)))
+    const validSelected = selectedServiceIds.filter((id) => activeIdSet.has(String(id)))
+    if (validSelected.length !== selectedServiceIds.length) {
+      setSelectedServiceIds(
+        validSelected.length > 0 ? validSelected : [String(services[0].id)]
+      )
+    } else if (validSelected.length === 0 && selectedServiceIds.length === 0) {
+      // اگر کاربر خودش همه را برنداشته و در بارگذاری اولیه لیست خدمات تازه رسیده است
+      if (!stored?.selectedServiceIds) {
+        setSelectedServiceIds([String(services[0].id)])
+      }
+    }
+  }, [services])
+
+  // محاسبه خدمات انتخاب‌شده، مجموع مدت (دقیقه) و مجموع قیمت (تومان)
+  const selectedServices = useMemo(() => {
+    const idSet = new Set(selectedServiceIds.map(String))
+    return services.filter((s) => idSet.has(String(s.id)))
+  }, [services, selectedServiceIds])
+
+  const totalDuration = useMemo(() => {
+    return selectedServices.reduce((sum, srv) => sum + (Number(srv.duration) || 0), 0)
+  }, [selectedServices])
+
+  const totalPrice = useMemo(() => {
+    return selectedServices.reduce((sum, srv) => sum + (Number(srv.price) || 0), 0)
+  }, [selectedServices])
+
   // ذخیره وضعیت فرم و کادر سبز خلاصه نوبت در sessionStorage تا با رفرش صفحه نپرد
   useEffect(() => {
     try {
@@ -75,7 +137,8 @@ export default function BookingPage({ customer, services, onBack }) {
         JSON.stringify({
           customerName,
           customerPhone,
-          serviceId,
+          selectedServiceIds,
+          serviceId: selectedServiceIds[0] || '',
           appointmentDate,
           appointmentTime,
           savedAppointment,
@@ -87,82 +150,166 @@ export default function BookingPage({ customer, services, onBack }) {
   }, [
     customerName,
     customerPhone,
-    serviceId,
+    selectedServiceIds,
     appointmentDate,
     appointmentTime,
     savedAppointment,
   ])
 
-  useEffect(() => {
-    if (services.length === 0) {
-      if (serviceId !== '') {
-        setServiceId('')
-      }
-      return
-    }
-    const existsInActiveServices = services.some((s) => String(s.id) === String(serviceId))
-    if (!serviceId || !existsInActiveServices) {
-      setServiceId(String(services[0].id))
-    }
-  }, [services, serviceId])
-
-  // دریافت ساعت‌های رزروشده، ساعت کاری روز، تعطیلی یا مرخصی در روز انتخابی (R7)
+  // دریافت برنامه کاری، تعطیلی، مرخصی‌ها و بازه‌های رزروشده روز انتخابی از بک‌اند
   useEffect(() => {
     if (!appointmentDate) {
-      setBookedSlots([])
-      setLeaveSlots([])
-      setWorkingSlots(TIME_SLOTS)
-      setIsDayClosed(false)
-      setCloseReason('')
+      setDaySchedule({
+        startTime: '10:00',
+        endTime: '20:00',
+        workingSlots: TIME_SLOTS,
+        bookedIntervals: [],
+        hourlyLeaves: [],
+        isClosed: false,
+        closeReason: '',
+      })
       return
     }
 
-    apiRequest(`/api/appointments/booked-slots?date=${encodeURIComponent(appointmentDate)}`)
+    const durationParam = totalDuration > 0 ? `&duration=${encodeURIComponent(totalDuration)}` : ''
+    apiRequest(
+      `/api/appointments/booked-slots?date=${encodeURIComponent(appointmentDate)}${durationParam}`
+    )
       .then((data) => {
-        const activeTimes = Array.isArray(data.booked_slots) ? data.booked_slots : []
-        const activeLeaves = Array.isArray(data.leave_slots) ? data.leave_slots : []
         const dayWorkingSlots =
           Array.isArray(data.working_slots) && data.working_slots.length > 0
             ? data.working_slots
             : TIME_SLOTS
-        const closed = Boolean(data.is_closed)
+        const intervals = Array.isArray(data.booked_intervals)
+          ? data.booked_intervals
+          : Array.isArray(data.booked_slots)
+            ? data.booked_slots.map((slot) => ({
+                start_time: slot,
+                end_time: minutesToTime(timeToMinutes(slot) + 30),
+                duration: 30,
+              }))
+            : []
+        const leaves = Array.isArray(data.hourly_leaves)
+          ? data.hourly_leaves
+          : Array.isArray(data.leave_slots)
+            ? data.leave_slots.map((slot) => ({
+                start_time: slot,
+                end_time: minutesToTime(timeToMinutes(slot) + 30),
+              }))
+            : []
 
-        setBookedSlots(activeTimes)
-        setLeaveSlots(activeLeaves)
-        setWorkingSlots(dayWorkingSlots)
-        setIsDayClosed(closed)
-        setCloseReason(data.close_reason || '')
-
-        if (!closed) {
-          const isCurrentUnavailable =
-            !dayWorkingSlots.includes(appointmentTime) ||
-            activeTimes.includes(appointmentTime) ||
-            activeLeaves.includes(appointmentTime)
-
-          if (isCurrentUnavailable) {
-            const firstFree = dayWorkingSlots.find(
-              (slot) => !activeTimes.includes(slot) && !activeLeaves.includes(slot)
-            )
-            if (firstFree) {
-              setAppointmentTime(firstFree)
-            }
-          }
-        }
+        setDaySchedule({
+          startTime: data.start_time || '10:00',
+          endTime: data.end_time || '20:00',
+          workingSlots: dayWorkingSlots,
+          bookedIntervals: intervals,
+          hourlyLeaves: leaves,
+          isClosed: Boolean(data.is_closed),
+          closeReason: data.close_reason || '',
+        })
       })
       .catch(() => {
-        setBookedSlots([])
-        setLeaveSlots([])
-        setWorkingSlots(TIME_SLOTS)
-        setIsDayClosed(false)
-        setCloseReason('')
+        setDaySchedule({
+          startTime: '10:00',
+          endTime: '20:00',
+          workingSlots: TIME_SLOTS,
+          bookedIntervals: [],
+          hourlyLeaves: [],
+          isClosed: false,
+          closeReason: '',
+        })
       })
-  }, [appointmentDate])
+  }, [appointmentDate, totalDuration])
+
+  // محاسبه دقیق فقط زمان‌هایی که مجموع خدمات انتخاب‌شده کامل در آن جا می‌شوند (R3, R5, R6, R7, R8)
+  const fittingSlots = useMemo(() => {
+    if (
+      !appointmentDate ||
+      daySchedule.isClosed ||
+      selectedServices.length === 0 ||
+      totalDuration <= 0
+    ) {
+      return []
+    }
+
+    const workStartMin = timeToMinutes(daySchedule.startTime)
+    const workEndMin = timeToMinutes(daySchedule.endTime)
+    const todayIso = getTodayIsoDate()
+    const isToday = appointmentDate === todayIso
+    const now = new Date()
+    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+
+    return daySchedule.workingSlots.filter((slot) => {
+      const slotStartMin = timeToMinutes(slot)
+      const slotEndMin = slotStartMin + totalDuration
+
+      // ۱. داخل ساعت کاری روز (R1, R6, R7): کل خدمت باید قبل از پایان ساعت کاری تمام شود
+      if (slotStartMin < workStartMin || slotEndMin > workEndMin) {
+        return false
+      }
+
+      // ۲. در روز جاری ساعت شروع نگذشته باشد (R3)
+      if (isToday && slotStartMin <= nowMinutes) {
+        return false
+      }
+
+      // ۳. بیرون از بازه‌های مرخصی ساعتی (R7)
+      for (const leave of daySchedule.hourlyLeaves) {
+        const leaveStartMin = timeToMinutes(leave.start_time)
+        const leaveEndMin = timeToMinutes(leave.end_time)
+        if (intervalsOverlap(slotStartMin, slotEndMin, leaveStartMin, leaveEndMin)) {
+          return false
+        }
+      }
+
+      // ۴. بدون هم‌پوشانی با نوبت‌های فعال دیگر (R5)
+      for (const booked of daySchedule.bookedIntervals) {
+        const bookedStartMin = timeToMinutes(booked.start_time)
+        const bookedEndMin = booked.end_time
+          ? timeToMinutes(booked.end_time)
+          : bookedStartMin + (Number(booked.duration) || 30)
+        if (intervalsOverlap(slotStartMin, slotEndMin, bookedStartMin, bookedEndMin)) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [appointmentDate, daySchedule, selectedServices.length, totalDuration])
+
+  // اگر ساعت انتخابی فعلی دیگر در لیست ساعت‌های مجاز جا نشود، اولین ساعت مجاز انتخاب شود
+  useEffect(() => {
+    if (!appointmentDate || daySchedule.isClosed || fittingSlots.length === 0) {
+      if (appointmentTime !== '' && fittingSlots.length === 0 && appointmentDate) {
+        setAppointmentTime('')
+      }
+      return
+    }
+    if (!fittingSlots.includes(appointmentTime)) {
+      setAppointmentTime(fittingSlots[0])
+    }
+  }, [fittingSlots, appointmentDate, daySchedule.isClosed, appointmentTime])
+
+  function handleToggleService(idStr) {
+    clearFieldError('service_id')
+    setSelectedServiceIds((prev) => {
+      const exists = prev.includes(idStr)
+      if (exists) {
+        return prev.filter((item) => item !== idStr)
+      }
+      return [...prev, idStr]
+    })
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setFormError('')
     setFieldErrors({})
     setSavedAppointment(null)
+
+    const numericServiceIds = selectedServiceIds
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && id > 0)
 
     setSubmitting(true)
     try {
@@ -172,15 +319,30 @@ export default function BookingPage({ customer, services, onBack }) {
           customer_id: customer?.id || null,
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
-          service_id: serviceId ? Number(serviceId) : null,
+          service_id: numericServiceIds[0] || null,
+          service_ids: numericServiceIds,
           appointment_date: appointmentDate,
           appointment_time: appointmentTime,
         }),
       })
-      setSavedAppointment(data.appointment)
-      setBookedSlots((prev) =>
-        prev.includes(appointmentTime) ? prev : [...prev, appointmentTime]
-      )
+
+      const created = data.appointment
+      setSavedAppointment(created)
+
+      // بلافاصله بازه اشغال‌شده جدید را به لیست بازه‌های رزروشده روز اضافه می‌کنیم تا ساعت‌های متداخل حذف شوند
+      const bookedDur = Number(created?.total_duration) || totalDuration || 30
+      const startMin = timeToMinutes(appointmentTime)
+      setDaySchedule((prev) => ({
+        ...prev,
+        bookedIntervals: [
+          ...prev.bookedIntervals,
+          {
+            start_time: appointmentTime,
+            end_time: minutesToTime(startMin + bookedDur),
+            duration: bookedDur,
+          },
+        ],
+      }))
     } catch (err) {
       if (err.errors && Object.keys(err.errors).length > 0) {
         setFieldErrors(err.errors)
@@ -195,11 +357,112 @@ export default function BookingPage({ customer, services, onBack }) {
     }
   }
 
+  const savedServiceNames = useMemo(() => {
+    if (!savedAppointment) return ''
+    if (Array.isArray(savedAppointment.services) && savedAppointment.services.length > 0) {
+      return savedAppointment.services.map((s) => s.name).join('، ')
+    }
+    return savedAppointment.service?.name || ''
+  }, [savedAppointment])
+
   return (
     <div className="booking-container">
       <h1 className="title">رزرو نوبت</h1>
 
       <form className="booking-form" onSubmit={handleSubmit} noValidate>
+        {/* گام ۱: انتخاب یک یا چند خدمت (R8) */}
+        <div className="form-group">
+          <label>۱. انتخاب یک یا چند خدمت</label>
+          <div
+            className={`service-multi-list ${fieldErrors.service_id ? 'input-invalid' : ''}`}
+            role="group"
+            aria-label="انتخاب خدمات آرایشگاه"
+          >
+            {services.map((service) => {
+              const idStr = String(service.id)
+              const isChecked = selectedServiceIds.includes(idStr)
+              return (
+                <button
+                  key={service.id}
+                  type="button"
+                  aria-pressed={isChecked}
+                  onClick={() => handleToggleService(idStr)}
+                  className={`time-slot-card service-slot-card ${isChecked ? 'selected' : ''}`}
+                >
+                  <span className="time-slot-text">{service.name}</span>
+                  <span className="time-slot-end-hint">
+                    {formatPrice(service.price)} تومان —{' '}
+                    {toPersianDigits(service.duration)} دقیقه
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {selectedServices.length > 0 && (
+            <div className="selected-services-summary">
+              <span>
+                تعداد خدمات: <strong>{toPersianDigits(selectedServices.length)}</strong>
+              </span>
+              <span>
+                مجموع زمان: <strong>{toPersianDigits(totalDuration)} دقیقه</strong>
+              </span>
+              <span>
+                مجموع هزینه: <strong>{formatPrice(totalPrice)} تومان</strong>
+              </span>
+            </div>
+          )}
+
+          {fieldErrors.service_id && (
+            <p className="field-error" role="alert">
+              {fieldErrors.service_id}
+            </p>
+          )}
+        </div>
+
+        {/* گام ۲: انتخاب روز (شمسی) */}
+        <div className="form-group">
+          <label htmlFor="appointmentDate">۲. انتخاب روز (شمسی)</label>
+          <JalaliDatePicker
+            id="appointmentDate"
+            invalid={Boolean(fieldErrors.appointment_date)}
+            value={appointmentDate}
+            onChange={(val) => {
+              setAppointmentDate(val)
+              clearFieldError('appointment_date')
+            }}
+          />
+          {fieldErrors.appointment_date && (
+            <p className="field-error" role="alert">
+              {fieldErrors.appointment_date}
+            </p>
+          )}
+        </div>
+
+        {/* گام ۳: نمایش فقط ساعت‌هایی که خدمات انتخاب‌شده کامل در آن جا می‌شوند */}
+        <div className="form-group">
+          <label>۳. انتخاب ساعت (فقط زمان‌های قابل رزرو برای خدمات انتخابی)</label>
+          <TimeSlotPicker
+            value={appointmentTime}
+            onChange={(val) => {
+              setAppointmentTime(val)
+              clearFieldError('appointment_time')
+            }}
+            fittingSlots={fittingSlots}
+            totalDuration={totalDuration}
+            hasSelectedDate={Boolean(appointmentDate)}
+            hasSelectedServices={selectedServices.length > 0}
+            isDayClosed={daySchedule.isClosed}
+            closeReason={daySchedule.closeReason}
+          />
+          {fieldErrors.appointment_time && (
+            <p className="field-error" role="alert">
+              {fieldErrors.appointment_time}
+            </p>
+          )}
+        </div>
+
+        {/* اطلاعات تماس مشتری */}
         <div className="form-group">
           <label htmlFor="customerName">نام و نام خانوادگی</label>
           <input
@@ -242,76 +505,19 @@ export default function BookingPage({ customer, services, onBack }) {
           )}
         </div>
 
-        <div className="form-group">
-          <label htmlFor="serviceId">انتخاب خدمت</label>
-          <select
-            id="serviceId"
-            className={fieldErrors.service_id ? 'input-invalid' : ''}
-            aria-invalid={Boolean(fieldErrors.service_id)}
-            value={serviceId}
-            onChange={(e) => {
-              setServiceId(e.target.value)
-              clearFieldError('service_id')
-            }}
-          >
-            {services.map((service) => (
-              <option key={service.id} value={service.id}>
-                {service.name} ({formatPrice(service.price)} تومان -{' '}
-                {Number(service.duration).toLocaleString('fa-IR')} دقیقه)
-              </option>
-            ))}
-          </select>
-          {fieldErrors.service_id && (
-            <p className="field-error" role="alert">
-              {fieldErrors.service_id}
-            </p>
-          )}
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="appointmentDate">انتخاب روز (شمسی)</label>
-          <JalaliDatePicker
-            id="appointmentDate"
-            invalid={Boolean(fieldErrors.appointment_date)}
-            value={appointmentDate}
-            onChange={(val) => {
-              setAppointmentDate(val)
-              clearFieldError('appointment_date')
-            }}
-          />
-          {fieldErrors.appointment_date && (
-            <p className="field-error" role="alert">
-              {fieldErrors.appointment_date}
-            </p>
-          )}
-        </div>
-
-        <div className="form-group">
-          <label>انتخاب ساعت</label>
-          <TimeSlotPicker
-            value={appointmentTime}
-            onChange={(val) => {
-              setAppointmentTime(val)
-              clearFieldError('appointment_time')
-            }}
-            bookedSlots={bookedSlots}
-            leaveSlots={leaveSlots}
-            availableSlots={workingSlots}
-            isDayClosed={isDayClosed}
-            closeReason={closeReason}
-          />
-          {fieldErrors.appointment_time && (
-            <p className="field-error" role="alert">
-              {fieldErrors.appointment_time}
-            </p>
-          )}
-        </div>
-
         {formError && <p className="error">{formError}</p>}
 
         <div className="form-actions">
-          <button type="submit" className="primary-btn" disabled={submitting || isDayClosed}>
-            {submitting ? 'در حال ثبت...' : isDayClosed ? 'این روز تعطیل است' : 'ثبت نوبت'}
+          <button
+            type="submit"
+            className="primary-btn"
+            disabled={submitting || daySchedule.isClosed}
+          >
+            {submitting
+              ? 'در حال ثبت...'
+              : daySchedule.isClosed
+                ? 'این روز تعطیل است'
+                : 'ثبت نوبت'}
           </button>
         </div>
       </form>
@@ -328,8 +534,14 @@ export default function BookingPage({ customer, services, onBack }) {
             <strong>{toPersianDigits(savedAppointment.customer_phone)}</strong>
           </div>
           <div className="summary-row">
-            <span>خدمت انتخاب‌شده:</span>
-            <strong>{savedAppointment.service?.name}</strong>
+            <span>خدمات انتخاب‌شده:</span>
+            <strong>{savedServiceNames}</strong>
+          </div>
+          <div className="summary-row">
+            <span>مجموع مدت زمان:</span>
+            <strong>
+              {toPersianDigits(savedAppointment.total_duration || totalDuration)} دقیقه
+            </strong>
           </div>
           <div className="summary-row">
             <span>روز نوبت:</span>

@@ -265,7 +265,11 @@ export default function OwnerPage({
                       </div>
                       <div className="owner-cell owner-cell-service">
                         <span className="mobile-label">خدمت:</span>
-                        <span>{item.service?.name || '-'}</span>
+                        <span>
+                          {Array.isArray(item.services) && item.services.length > 0
+                            ? item.services.map((s) => s.name).join('، ')
+                            : item.service?.name || '-'}
+                        </span>
                       </div>
                       <div className="owner-cell owner-cell-time">
                         <span className="mobile-label">ساعت:</span>
