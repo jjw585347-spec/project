@@ -56,6 +56,9 @@ export default function HomePage({ services, error, customer, onOpenBooking, onB
         <button type="button" className="primary-btn" onClick={handleBookingClick}>
           نوبت گیری
         </button>
+        <button type="button" className="secondary-btn" onClick={() => navigate('/track')}>
+          پیگیری نوبت
+        </button>
       </div>
 
       <div className="page-bottom-nav">

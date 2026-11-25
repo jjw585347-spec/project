@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -17,12 +18,110 @@ class Appointment extends Model
         'appointment_date',
         'appointment_time',
         'status',
+        'tracking_code',
     ];
 
     protected $appends = [
         'total_duration',
         'total_price',
+        'cancel_deadline_hours',
+        'can_customer_cancel',
+        'cancel_block_reason',
     ];
+
+    /**
+     * تولید کد پیگیری ۶ رقمی عددی یکتا برای نوبت جدید (R9)
+     */
+    public static function generateUniqueTrackingCode(): string
+    {
+        do {
+            $code = (string) random_int(100000, 999999);
+        } while (self::where('tracking_code', $code)->exists());
+
+        return $code;
+    }
+
+    /**
+     * مهلت لغو نوبت توسط مشتری بر حسب ساعت قبل از زمان نوبت (پیش‌فرض ۲ ساعت طبق R9)
+     */
+    public static function getCancelDeadlineHours(): int
+    {
+        $configured = (int) config('app.cancel_deadline_hours', 2);
+
+        return $configured > 0 ? $configured : 2;
+    }
+
+    public function getCancelDeadlineHoursAttribute(): int
+    {
+        return self::getCancelDeadlineHours();
+    }
+
+    /**
+     * بررسی وضعیت امکان لغو نوبت توسط خود مشتری و دلیل غیرفعال بودن آن (R9)
+     *
+     * @return array{can_cancel: bool, reason: ?string}
+     */
+    public function evaluateCustomerCancellation(?Carbon $now = null): array
+    {
+        $deadlineHours = self::getCancelDeadlineHours();
+
+        if ($this->status === 'cancelled') {
+            return [
+                'can_cancel' => false,
+                'reason' => 'این نوبت قبلاً لغو شده است.',
+            ];
+        }
+
+        if (!$this->appointment_date || !$this->appointment_time) {
+            return [
+                'can_cancel' => false,
+                'reason' => 'اطلاعات زمان نوبت معتبر نیست.',
+            ];
+        }
+
+        $now = $now ?: Carbon::now('Asia/Tehran');
+        $dateStr = substr((string) $this->appointment_date, 0, 10);
+        $timeStr = substr((string) $this->appointment_time, 0, 5);
+
+        try {
+            $appointmentDateTime = Carbon::createFromFormat('Y-m-d H:i', "{$dateStr} {$timeStr}", 'Asia/Tehran');
+        } catch (\Throwable) {
+            return [
+                'can_cancel' => false,
+                'reason' => 'اطلاعات زمان نوبت معتبر نیست.',
+            ];
+        }
+
+        if ($now->greaterThanOrEqualTo($appointmentDateTime)) {
+            return [
+                'can_cancel' => false,
+                'reason' => "زمان این نوبت گذشته است و امکان لغو آن وجود ندارد (مهلت لغو تا {$deadlineHours} ساعت قبل از شروع نوبت است).",
+            ];
+        }
+
+        $latestCancelTime = $appointmentDateTime->copy()->subHours($deadlineHours);
+        if ($now->greaterThan($latestCancelTime)) {
+            return [
+                'can_cancel' => false,
+                'reason' => "امکان لغو نوبت فقط تا {$deadlineHours} ساعت قبل از زمان نوبت وجود دارد و مهلت لغو این نوبت به پایان رسیده است.",
+            ];
+        }
+
+        return [
+            'can_cancel' => true,
+            'reason' => null,
+        ];
+    }
+
+    public function getCanCustomerCancelAttribute(): bool
+    {
+        return $this->evaluateCustomerCancellation()['can_cancel'];
+    }
+
+    public function getCancelBlockReasonAttribute(): ?string
+    {
+        return $this->evaluateCustomerCancellation()['reason'];
+    }
 
     public function customer(): BelongsTo
     {

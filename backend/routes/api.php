@@ -16,9 +16,11 @@ Route::post('/customers/register', [CustomerController::class, 'register']);
 Route::post('/customers/login', [CustomerController::class, 'login']);
 Route::get('/customers/{id}', [CustomerController::class, 'show']);
 
-// رزرو نوبت توسط مشتری (دریافت فقط ساعت‌های پر و ثبت نوبت جدید)
+// رزرو نوبت توسط مشتری (دریافت فقط ساعت‌های پر، ثبت نوبت جدید و پیگیری/لغو با کد پیگیری ۶ رقمی R9)
 Route::get('/appointments/booked-slots', [AppointmentController::class, 'bookedSlots']);
 Route::post('/appointments', [AppointmentController::class, 'store']);
+Route::post('/appointments/track', [AppointmentController::class, 'track']);
+Route::post('/appointments/track/cancel', [AppointmentController::class, 'customerCancel']);
 
 // ورود صاحب آرایشگاه به پنل مدیریت
 Route::post('/admin/login', [AdminAuthController::class, 'login']);

@@ -13,6 +13,14 @@ import {
 } from '../utils/persian'
 
 const BOOKING_STATE_KEY = 'barbershop_booking_page_state'
+const TRACKING_PREFILL_KEY = 'barbershop_tracking_prefill'
+
+const STEPS = [
+  { id: 1, title: 'انتخاب خدمت‌ها' },
+  { id: 2, title: 'انتخاب روز و زمان' },
+  { id: 3, title: 'نام و موبایل' },
+  { id: 4, title: 'تأیید' },
+]
 
 function loadStoredBookingState() {
   try {
@@ -27,6 +35,14 @@ function intervalsOverlap(startA, endA, startB, endB) {
   return startA < endB && endA > startB
 }
 
+function normalizePhoneDigits(raw) {
+  if (!raw) return ''
+  return String(raw)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .trim()
+}
+
 export default function BookingPage({ customer, services, onBack }) {
   const navigate = useNavigate()
   const [stored] = useState(loadStoredBookingState)
@@ -39,6 +55,11 @@ export default function BookingPage({ customer, services, onBack }) {
     }
   }
 
+  const [currentStep, setCurrentStep] = useState(() => {
+    const s = Number(stored?.currentStep)
+    return s >= 1 && s <= 4 ? s : 1
+  })
+
   const [customerName, setCustomerName] = useState(
     stored?.customerName !== undefined ? stored.customerName : customer?.name || ''
   )
@@ -46,7 +67,7 @@ export default function BookingPage({ customer, services, onBack }) {
     stored?.customerPhone !== undefined ? stored.customerPhone : customer?.phone || ''
   )
 
-  // پشتیبانی از انتخاب یک یا چند خدمت (گام اول طبق R8)
+  // گام ۱: انتخاب یک یا چند خدمت (R8)
   const [selectedServiceIds, setSelectedServiceIds] = useState(() => {
     if (Array.isArray(stored?.selectedServiceIds) && stored.selectedServiceIds.length > 0) {
       return stored.selectedServiceIds.map(String)
@@ -108,7 +129,6 @@ export default function BookingPage({ customer, services, onBack }) {
         validSelected.length > 0 ? validSelected : [String(services[0].id)]
       )
     } else if (validSelected.length === 0 && selectedServiceIds.length === 0) {
-      // اگر کاربر خودش همه را برنداشته و در بارگذاری اولیه لیست خدمات تازه رسیده است
       if (!stored?.selectedServiceIds) {
         setSelectedServiceIds([String(services[0].id)])
       }
@@ -121,6 +141,11 @@ export default function BookingPage({ customer, services, onBack }) {
     return services.filter((s) => idSet.has(String(s.id)))
   }, [services, selectedServiceIds])
 
+  const selectedServiceNames = useMemo(() => {
+    if (selectedServices.length === 0) return 'هنوز خدمتی انتخاب نشده است'
+    return selectedServices.map((s) => s.name).join('، ')
+  }, [selectedServices])
+
   const totalDuration = useMemo(() => {
     return selectedServices.reduce((sum, srv) => sum + (Number(srv.duration) || 0), 0)
   }, [selectedServices])
@@ -129,12 +154,13 @@ export default function BookingPage({ customer, services, onBack }) {
     return selectedServices.reduce((sum, srv) => sum + (Number(srv.price) || 0), 0)
   }, [selectedServices])
 
-  // ذخیره وضعیت فرم و کادر سبز خلاصه نوبت در sessionStorage تا با رفرش صفحه نپرد
+  // ذخیره وضعیت فرم و کادر خلاصه نوبت در sessionStorage
   useEffect(() => {
     try {
       sessionStorage.setItem(
         BOOKING_STATE_KEY,
         JSON.stringify({
+          currentStep,
           customerName,
           customerPhone,
           selectedServiceIds,
@@ -148,6 +174,7 @@ export default function BookingPage({ customer, services, onBack }) {
       // نادیده گرفتن خطای احتمالی storage
     }
   }, [
+    currentStep,
     customerName,
     customerPhone,
     selectedServiceIds,
@@ -243,17 +270,14 @@ export default function BookingPage({ customer, services, onBack }) {
       const slotStartMin = timeToMinutes(slot)
       const slotEndMin = slotStartMin + totalDuration
 
-      // ۱. داخل ساعت کاری روز (R1, R6, R7): کل خدمت باید قبل از پایان ساعت کاری تمام شود
       if (slotStartMin < workStartMin || slotEndMin > workEndMin) {
         return false
       }
 
-      // ۲. در روز جاری ساعت شروع نگذشته باشد (R3)
       if (isToday && slotStartMin <= nowMinutes) {
         return false
       }
 
-      // ۳. بیرون از بازه‌های مرخصی ساعتی (R7)
       for (const leave of daySchedule.hourlyLeaves) {
         const leaveStartMin = timeToMinutes(leave.start_time)
         const leaveEndMin = timeToMinutes(leave.end_time)
@@ -262,7 +286,6 @@ export default function BookingPage({ customer, services, onBack }) {
         }
       }
 
-      // ۴. بدون هم‌پوشانی با نوبت‌های فعال دیگر (R5)
       for (const booked of daySchedule.bookedIntervals) {
         const bookedStartMin = timeToMinutes(booked.start_time)
         const bookedEndMin = booked.end_time
@@ -301,11 +324,117 @@ export default function BookingPage({ customer, services, onBack }) {
     })
   }
 
+  function validateStep1() {
+    if (selectedServices.length === 0) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        service_id: 'لطفاً حداقل یکی از خدمات آرایشگاه را انتخاب کنید.',
+      }))
+      return false
+    }
+    clearFieldError('service_id')
+    return true
+  }
+
+  function validateStep2() {
+    const nextErrors = {}
+    if (!appointmentDate) {
+      nextErrors.appointment_date = 'لطفاً یک تاریخ معتبر برای نوبت انتخاب کنید.'
+    } else if (daySchedule.isClosed) {
+      nextErrors.appointment_date =
+        daySchedule.closeReason || 'آرایشگاه در این روز تعطیل است. لطفاً روز دیگری را انتخاب کنید.'
+    }
+
+    if (!nextErrors.appointment_date) {
+      if (!appointmentTime || !fittingSlots.includes(appointmentTime)) {
+        nextErrors.appointment_time = 'لطفاً یکی از ساعت‌های قابل رزرو را انتخاب کنید.'
+      }
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors((prev) => ({ ...prev, ...nextErrors }))
+      return false
+    }
+    clearFieldError('appointment_date')
+    clearFieldError('appointment_time')
+    return true
+  }
+
+  function validateStep3() {
+    const nextErrors = {}
+    const trimmedName = customerName.trim()
+    const normalizedPhone = normalizePhoneDigits(customerPhone)
+
+    if (!trimmedName) {
+      nextErrors.customer_name = 'لطفاً نام و نام خانوادگی را وارد کنید.'
+    }
+    if (!normalizedPhone) {
+      nextErrors.customer_phone = 'لطفاً شماره موبایل را وارد کنید.'
+    } else if (!/^09\d{9}$/.test(normalizedPhone)) {
+      nextErrors.customer_phone =
+        'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با ۰۹ شروع می‌شود (مثلاً 09123456789) وارد کنید.'
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors((prev) => ({ ...prev, ...nextErrors }))
+      return false
+    }
+    clearFieldError('customer_name')
+    clearFieldError('customer_phone')
+    return true
+  }
+
+  function handleNextStep() {
+    setFormError('')
+    if (currentStep === 1) {
+      if (validateStep1()) setCurrentStep(2)
+    } else if (currentStep === 2) {
+      if (validateStep2()) setCurrentStep(3)
+    } else if (currentStep === 3) {
+      if (validateStep3()) setCurrentStep(4)
+    }
+  }
+
+  function handlePrevStep() {
+    setFormError('')
+    if (currentStep > 1) {
+      setCurrentStep((prev) => prev - 1)
+    }
+  }
+
+  function handleJumpToStep(targetStep) {
+    if (savedAppointment) return
+    if (targetStep < currentStep) {
+      setFormError('')
+      setCurrentStep(targetStep)
+      return
+    }
+    if (targetStep === 2 && validateStep1()) {
+      setCurrentStep(2)
+    } else if (targetStep === 3 && validateStep1() && validateStep2()) {
+      setCurrentStep(3)
+    } else if (targetStep === 4 && validateStep1() && validateStep2() && validateStep3()) {
+      setCurrentStep(4)
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setFormError('')
     setFieldErrors({})
-    setSavedAppointment(null)
+
+    if (!validateStep1()) {
+      setCurrentStep(1)
+      return
+    }
+    if (!validateStep2()) {
+      setCurrentStep(2)
+      return
+    }
+    if (!validateStep3()) {
+      setCurrentStep(3)
+      return
+    }
 
     const numericServiceIds = selectedServiceIds
       .map((id) => Number(id))
@@ -329,7 +458,6 @@ export default function BookingPage({ customer, services, onBack }) {
       const created = data.appointment
       setSavedAppointment(created)
 
-      // بلافاصله بازه اشغال‌شده جدید را به لیست بازه‌های رزروشده روز اضافه می‌کنیم تا ساعت‌های متداخل حذف شوند
       const bookedDur = Number(created?.total_duration) || totalDuration || 30
       const startMin = timeToMinutes(appointmentTime)
       setDaySchedule((prev) => ({
@@ -346,6 +474,13 @@ export default function BookingPage({ customer, services, onBack }) {
     } catch (err) {
       if (err.errors && Object.keys(err.errors).length > 0) {
         setFieldErrors(err.errors)
+        if (err.errors.service_id) {
+          setCurrentStep(1)
+        } else if (err.errors.appointment_date || err.errors.appointment_time) {
+          setCurrentStep(2)
+        } else if (err.errors.customer_name || err.errors.customer_phone) {
+          setCurrentStep(3)
+        }
         if (err.errors.customer_id) {
           setFormError(err.errors.customer_id)
         }
@@ -357,191 +492,92 @@ export default function BookingPage({ customer, services, onBack }) {
     }
   }
 
+  function handleStartNewBooking() {
+    setSavedAppointment(null)
+    setAppointmentTime('')
+    setFormError('')
+    setFieldErrors({})
+    setCurrentStep(1)
+  }
+
+  function handleGoToTrackingPage() {
+    if (savedAppointment) {
+      try {
+        sessionStorage.setItem(
+          TRACKING_PREFILL_KEY,
+          JSON.stringify({
+            customerPhone: savedAppointment.customer_phone || customerPhone,
+            trackingCode: savedAppointment.tracking_code || '',
+          })
+        )
+      } catch {
+        //
+      }
+    }
+    navigate('/track')
+  }
+
   const savedServiceNames = useMemo(() => {
     if (!savedAppointment) return ''
     if (Array.isArray(savedAppointment.services) && savedAppointment.services.length > 0) {
       return savedAppointment.services.map((s) => s.name).join('، ')
     }
-    return savedAppointment.service?.name || ''
-  }, [savedAppointment])
+    return savedAppointment.service?.name || selectedServiceNames
+  }, [savedAppointment, selectedServiceNames])
+
+  const savedTotalPrice = useMemo(() => {
+    if (!savedAppointment) return totalPrice
+    if (savedAppointment.total_price !== undefined && savedAppointment.total_price !== null) {
+      return Number(savedAppointment.total_price)
+    }
+    if (Array.isArray(savedAppointment.services) && savedAppointment.services.length > 0) {
+      return savedAppointment.services.reduce((sum, s) => sum + (Number(s.price) || 0), 0)
+    }
+    return Number(savedAppointment.service?.price) || totalPrice
+  }, [savedAppointment, totalPrice])
+
+  const savedTotalDuration = useMemo(() => {
+    if (!savedAppointment) return totalDuration
+    return Number(savedAppointment.total_duration) || totalDuration
+  }, [savedAppointment, totalDuration])
+
+  const selectedEndTime = useMemo(() => {
+    if (!appointmentTime || totalDuration <= 0) return ''
+    return minutesToTime(timeToMinutes(appointmentTime) + totalDuration)
+  }, [appointmentTime, totalDuration])
 
   return (
     <div className="booking-container">
       <h1 className="title">رزرو نوبت</h1>
 
-      <form className="booking-form" onSubmit={handleSubmit} noValidate>
-        {/* گام ۱: انتخاب یک یا چند خدمت (R8) */}
-        <div className="form-group">
-          <label>۱. انتخاب یک یا چند خدمت</label>
-          <div
-            className={`service-multi-list ${fieldErrors.service_id ? 'input-invalid' : ''}`}
-            role="group"
-            aria-label="انتخاب خدمات آرایشگاه"
-          >
-            {services.map((service) => {
-              const idStr = String(service.id)
-              const isChecked = selectedServiceIds.includes(idStr)
-              return (
-                <button
-                  key={service.id}
-                  type="button"
-                  aria-pressed={isChecked}
-                  onClick={() => handleToggleService(idStr)}
-                  className={`time-slot-card service-slot-card ${isChecked ? 'selected' : ''}`}
-                >
-                  <span className="time-slot-text">{service.name}</span>
-                  <span className="time-slot-end-hint">
-                    {formatPrice(service.price)} تومان —{' '}
-                    {toPersianDigits(service.duration)} دقیقه
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+      {/* نمایش صفحه خلاصه بعد از ثبت نوبت (شامل خدمت، هزینه، روز و ساعت نوبت و کد پیگیری ۶ رقمی) */}
+      {savedAppointment ? (
+        <div className="success-box" role="region" aria-label="خلاصه نوبت ثبت‌شده">
+          <h2 className="success-title">نوبت شما با موفقیت ثبت شد!</h2>
 
-          {selectedServices.length > 0 && (
-            <div className="selected-services-summary">
-              <span>
-                تعداد خدمات: <strong>{toPersianDigits(selectedServices.length)}</strong>
-              </span>
-              <span>
-                مجموع زمان: <strong>{toPersianDigits(totalDuration)} دقیقه</strong>
-              </span>
-              <span>
-                مجموع هزینه: <strong>{formatPrice(totalPrice)} تومان</strong>
-              </span>
+          {savedAppointment.tracking_code && (
+            <div className="tracking-code-banner">
+              <span>کد پیگیری ۶ رقمی شما:</span>
+              <strong className="tracking-code-digits" data-testid="booking-tracking-code">
+                {toPersianDigits(savedAppointment.tracking_code)}
+              </strong>
+              <p className="tracking-code-hint">
+                این کد را نگه دارید؛ برای مشاهده یا لغو نوبت (تا ۲ ساعت قبل از نوبت) به این کد و شماره موبایل نیاز دارید.
+              </p>
             </div>
           )}
 
-          {fieldErrors.service_id && (
-            <p className="field-error" role="alert">
-              {fieldErrors.service_id}
-            </p>
-          )}
-        </div>
-
-        {/* گام ۲: انتخاب روز (شمسی) */}
-        <div className="form-group">
-          <label htmlFor="appointmentDate">۲. انتخاب روز (شمسی)</label>
-          <JalaliDatePicker
-            id="appointmentDate"
-            invalid={Boolean(fieldErrors.appointment_date)}
-            value={appointmentDate}
-            onChange={(val) => {
-              setAppointmentDate(val)
-              clearFieldError('appointment_date')
-            }}
-          />
-          {fieldErrors.appointment_date && (
-            <p className="field-error" role="alert">
-              {fieldErrors.appointment_date}
-            </p>
-          )}
-        </div>
-
-        {/* گام ۳: نمایش فقط ساعت‌هایی که خدمات انتخاب‌شده کامل در آن جا می‌شوند */}
-        <div className="form-group">
-          <label>۳. انتخاب ساعت (فقط زمان‌های قابل رزرو برای خدمات انتخابی)</label>
-          <TimeSlotPicker
-            value={appointmentTime}
-            onChange={(val) => {
-              setAppointmentTime(val)
-              clearFieldError('appointment_time')
-            }}
-            fittingSlots={fittingSlots}
-            totalDuration={totalDuration}
-            hasSelectedDate={Boolean(appointmentDate)}
-            hasSelectedServices={selectedServices.length > 0}
-            isDayClosed={daySchedule.isClosed}
-            closeReason={daySchedule.closeReason}
-          />
-          {fieldErrors.appointment_time && (
-            <p className="field-error" role="alert">
-              {fieldErrors.appointment_time}
-            </p>
-          )}
-        </div>
-
-        {/* اطلاعات تماس مشتری */}
-        <div className="form-group">
-          <label htmlFor="customerName">نام و نام خانوادگی</label>
-          <input
-            id="customerName"
-            type="text"
-            className={fieldErrors.customer_name ? 'input-invalid' : ''}
-            aria-invalid={Boolean(fieldErrors.customer_name)}
-            value={customerName}
-            onChange={(e) => {
-              setCustomerName(e.target.value)
-              clearFieldError('customer_name')
-            }}
-            placeholder="نام خود را وارد کنید"
-          />
-          {fieldErrors.customer_name && (
-            <p className="field-error" role="alert">
-              {fieldErrors.customer_name}
-            </p>
-          )}
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="customerPhone">شماره موبایل</label>
-          <input
-            id="customerPhone"
-            type="tel"
-            className={fieldErrors.customer_phone ? 'input-invalid' : ''}
-            aria-invalid={Boolean(fieldErrors.customer_phone)}
-            value={customerPhone}
-            onChange={(e) => {
-              setCustomerPhone(e.target.value)
-              clearFieldError('customer_phone')
-            }}
-            placeholder="مثلاً 09123456789"
-          />
-          {fieldErrors.customer_phone && (
-            <p className="field-error" role="alert">
-              {fieldErrors.customer_phone}
-            </p>
-          )}
-        </div>
-
-        {formError && <p className="error">{formError}</p>}
-
-        <div className="form-actions">
-          <button
-            type="submit"
-            className="primary-btn"
-            disabled={submitting || daySchedule.isClosed}
-          >
-            {submitting
-              ? 'در حال ثبت...'
-              : daySchedule.isClosed
-                ? 'این روز تعطیل است'
-                : 'ثبت نوبت'}
-          </button>
-        </div>
-      </form>
-
-      {savedAppointment && (
-        <div className="success-box">
-          <h2 className="success-title">نوبت شما با موفقیت ثبت شد!</h2>
           <div className="summary-row">
-            <span>نام مشتری:</span>
-            <strong>{savedAppointment.customer_name}</strong>
-          </div>
-          <div className="summary-row">
-            <span>شماره موبایل:</span>
-            <strong>{toPersianDigits(savedAppointment.customer_phone)}</strong>
-          </div>
-          <div className="summary-row">
-            <span>خدمات انتخاب‌شده:</span>
+            <span>خدمت‌های انتخاب‌شده:</span>
             <strong>{savedServiceNames}</strong>
           </div>
           <div className="summary-row">
-            <span>مجموع مدت زمان:</span>
-            <strong>
-              {toPersianDigits(savedAppointment.total_duration || totalDuration)} دقیقه
-            </strong>
+            <span>هزینه‌ی کل:</span>
+            <strong>{formatPrice(savedTotalPrice)} تومان</strong>
+          </div>
+          <div className="summary-row">
+            <span>مدت کل:</span>
+            <strong>{toPersianDigits(savedTotalDuration)} دقیقه</strong>
           </div>
           <div className="summary-row">
             <span>روز نوبت:</span>
@@ -551,10 +587,310 @@ export default function BookingPage({ customer, services, onBack }) {
             <span>ساعت نوبت:</span>
             <strong>{toPersianDigits(savedAppointment.appointment_time)}</strong>
           </div>
+          <div className="summary-row">
+            <span>نام مشتری:</span>
+            <strong>{savedAppointment.customer_name}</strong>
+          </div>
+          <div className="summary-row">
+            <span>شماره موبایل:</span>
+            <strong>{toPersianDigits(savedAppointment.customer_phone)}</strong>
+          </div>
+
+          <div className="summary-actions">
+            <button type="button" className="primary-btn" onClick={handleGoToTrackingPage}>
+              پیگیری یا لغو این نوبت
+            </button>
+            <button type="button" className="secondary-btn" onClick={handleStartNewBooking}>
+              ثبت یک نوبت جدید
+            </button>
+          </div>
         </div>
+      ) : (
+        <>
+          {/* نوار قدم‌های رزرو: ۱. انتخاب خدمت‌ها -> ۲. انتخاب روز و زمان -> ۳. نام و موبایل -> ۴. تأیید */}
+          <div className="booking-stepper" role="navigation" aria-label="مراحل رزرو نوبت">
+            {STEPS.map((step) => {
+              const isActive = currentStep === step.id
+              const isCompleted = currentStep > step.id
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => handleJumpToStep(step.id)}
+                  className={`booking-step-pill ${isActive ? 'active' : ''} ${
+                    isCompleted ? 'completed' : ''
+                  }`}
+                  aria-current={isActive ? 'step' : undefined}
+                >
+                  <span className="booking-step-num">{toPersianDigits(step.id)}</span>
+                  <span className="booking-step-label">{step.title}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* خلاصه زنده انتخاب‌های مشتری که در تمام قدم‌ها همیشه بالای فرم دیده می‌شود */}
+          <div className="live-selection-bar" aria-label="خلاصه انتخاب شما در این لحظه">
+            <div className="live-selection-row">
+              <span>خدمت‌ها:</span>
+              <strong>{selectedServiceNames}</strong>
+            </div>
+            <div className="live-selection-metrics">
+              <span>
+                هزینه‌ی کل: <strong>{formatPrice(totalPrice)} تومان</strong>
+              </span>
+              <span>
+                مدت کل: <strong>{toPersianDigits(totalDuration)} دقیقه</strong>
+              </span>
+            </div>
+            {(appointmentDate || appointmentTime) && (
+              <div className="live-selection-datetime">
+                {appointmentDate && (
+                  <span>
+                    روز: <strong>{formatGregorianToJalaliDisplay(appointmentDate)}</strong>
+                  </span>
+                )}
+                {appointmentTime && (
+                  <span>
+                    ساعت:{' '}
+                    <strong>
+                      {toPersianDigits(appointmentTime)}
+                      {selectedEndTime ? ` تا ${toPersianDigits(selectedEndTime)}` : ''}
+                    </strong>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <form className="booking-form" onSubmit={handleSubmit} noValidate>
+            {/* قدم ۱: انتخاب خدمت‌ها */}
+            {currentStep === 1 && (
+              <div className="form-group">
+                <label>قدم ۱: انتخاب خدمت‌ها (می‌توانید یک یا چند خدمت انتخاب کنید)</label>
+                <div
+                  className={`service-multi-list ${fieldErrors.service_id ? 'input-invalid' : ''}`}
+                  role="group"
+                  aria-label="انتخاب خدمات آرایشگاه"
+                >
+                  {services.map((service) => {
+                    const idStr = String(service.id)
+                    const isChecked = selectedServiceIds.includes(idStr)
+                    return (
+                      <button
+                        key={service.id}
+                        type="button"
+                        aria-pressed={isChecked}
+                        onClick={() => handleToggleService(idStr)}
+                        className={`time-slot-card service-slot-card ${isChecked ? 'selected' : ''}`}
+                      >
+                        <span className="time-slot-text">{service.name}</span>
+                        <span className="time-slot-end-hint">
+                          {formatPrice(service.price)} تومان —{' '}
+                          {toPersianDigits(service.duration)} دقیقه
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {fieldErrors.service_id && (
+                  <p className="field-error" role="alert">
+                    {fieldErrors.service_id}
+                  </p>
+                )}
+
+                <div className="wizard-actions">
+                  <button type="button" className="primary-btn" onClick={handleNextStep}>
+                    ادامه به انتخاب روز و زمان
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* قدم ۲: انتخاب روز و زمان */}
+            {currentStep === 2 && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="appointmentDate">قدم ۲: انتخاب روز (شمسی)</label>
+                  <JalaliDatePicker
+                    id="appointmentDate"
+                    invalid={Boolean(fieldErrors.appointment_date)}
+                    value={appointmentDate}
+                    onChange={(val) => {
+                      setAppointmentDate(val)
+                      clearFieldError('appointment_date')
+                    }}
+                  />
+                  {fieldErrors.appointment_date && (
+                    <p className="field-error" role="alert">
+                      {fieldErrors.appointment_date}
+                    </p>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label>انتخاب زمان (فقط ساعت‌هایی که خدمات انتخابی شما کامل جا می‌شوند)</label>
+                  <TimeSlotPicker
+                    value={appointmentTime}
+                    onChange={(val) => {
+                      setAppointmentTime(val)
+                      clearFieldError('appointment_time')
+                    }}
+                    fittingSlots={fittingSlots}
+                    totalDuration={totalDuration}
+                    hasSelectedDate={Boolean(appointmentDate)}
+                    hasSelectedServices={selectedServices.length > 0}
+                    isDayClosed={daySchedule.isClosed}
+                    closeReason={daySchedule.closeReason}
+                  />
+                  {fieldErrors.appointment_time && (
+                    <p className="field-error" role="alert">
+                      {fieldErrors.appointment_time}
+                    </p>
+                  )}
+                </div>
+
+                <div className="wizard-actions">
+                  <button type="button" className="secondary-btn" onClick={handlePrevStep}>
+                    مرحله قبل (انتخاب خدمت‌ها)
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={handleNextStep}
+                    disabled={daySchedule.isClosed}
+                  >
+                    ادامه به نام و موبایل
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* قدم ۳: نام و موبایل */}
+            {currentStep === 3 && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="customerName">قدم ۳: نام و نام خانوادگی</label>
+                  <input
+                    id="customerName"
+                    type="text"
+                    className={fieldErrors.customer_name ? 'input-invalid' : ''}
+                    aria-invalid={Boolean(fieldErrors.customer_name)}
+                    value={customerName}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value)
+                      clearFieldError('customer_name')
+                    }}
+                    placeholder="نام خود را وارد کنید"
+                  />
+                  {fieldErrors.customer_name && (
+                    <p className="field-error" role="alert">
+                      {fieldErrors.customer_name}
+                    </p>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="customerPhone">شماره موبایل</label>
+                  <input
+                    id="customerPhone"
+                    type="tel"
+                    className={fieldErrors.customer_phone ? 'input-invalid' : ''}
+                    aria-invalid={Boolean(fieldErrors.customer_phone)}
+                    value={customerPhone}
+                    onChange={(e) => {
+                      setCustomerPhone(e.target.value)
+                      clearFieldError('customer_phone')
+                    }}
+                    placeholder="مثلاً 09123456789"
+                  />
+                  {fieldErrors.customer_phone && (
+                    <p className="field-error" role="alert">
+                      {fieldErrors.customer_phone}
+                    </p>
+                  )}
+                </div>
+
+                <div className="wizard-actions">
+                  <button type="button" className="secondary-btn" onClick={handlePrevStep}>
+                    مرحله قبل (روز و زمان)
+                  </button>
+                  <button type="button" className="primary-btn" onClick={handleNextStep}>
+                    بررسی و تأیید نهایی
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* قدم ۴: تأیید نهایی */}
+            {currentStep === 4 && (
+              <div className="confirm-step-box">
+                <h2 className="confirm-step-title">قدم ۴: بررسی و تأیید نهایی نوبت</h2>
+                <p className="confirm-step-subtitle">
+                  لطفاً مشخصات نوبت خود را بررسی کنید و در صورت صحت، دکمه «تأیید و ثبت نهایی نوبت» را بزنید.
+                </p>
+
+                <div className="confirm-details-list">
+                  <div className="summary-row confirm-detail-row">
+                    <span>خدمت‌های انتخاب‌شده:</span>
+                    <strong>{selectedServiceNames}</strong>
+                  </div>
+                  <div className="summary-row confirm-detail-row">
+                    <span>هزینه‌ی کل:</span>
+                    <strong>{formatPrice(totalPrice)} تومان</strong>
+                  </div>
+                  <div className="summary-row confirm-detail-row">
+                    <span>مدت کل:</span>
+                    <strong>{toPersianDigits(totalDuration)} دقیقه</strong>
+                  </div>
+                  <div className="summary-row confirm-detail-row">
+                    <span>روز نوبت:</span>
+                    <strong>{formatGregorianToJalaliDisplay(appointmentDate)}</strong>
+                  </div>
+                  <div className="summary-row confirm-detail-row">
+                    <span>ساعت نوبت:</span>
+                    <strong>
+                      {toPersianDigits(appointmentTime)}
+                      {selectedEndTime ? ` تا ${toPersianDigits(selectedEndTime)}` : ''}
+                    </strong>
+                  </div>
+                  <div className="summary-row confirm-detail-row">
+                    <span>نام و نام خانوادگی:</span>
+                    <strong>{customerName.trim()}</strong>
+                  </div>
+                  <div className="summary-row confirm-detail-row">
+                    <span>شماره موبایل:</span>
+                    <strong>{toPersianDigits(customerPhone.trim())}</strong>
+                  </div>
+                </div>
+
+                {formError && <p className="error">{formError}</p>}
+
+                <div className="wizard-actions">
+                  <button type="button" className="secondary-btn" onClick={handlePrevStep}>
+                    مرحله قبل (ویرایش نام و موبایل)
+                  </button>
+                  <button
+                    type="submit"
+                    className="primary-btn"
+                    disabled={submitting || daySchedule.isClosed}
+                  >
+                    {submitting ? 'در حال ثبت...' : 'تأیید و ثبت نهایی نوبت'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {currentStep !== 4 && formError && <p className="error">{formError}</p>}
+          </form>
+        </>
       )}
 
-      <div className="page-bottom-nav">
+      <div className="page-bottom-nav booking-bottom-links">
+        <button type="button" className="secondary-btn" onClick={() => navigate('/track')}>
+          پیگیری نوبت با کد پیگیری
+        </button>
         <button type="button" className="secondary-btn" onClick={handleBackClick}>
           برگشت به صفحه خدمات
         </button>

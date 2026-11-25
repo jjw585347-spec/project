@@ -765,4 +765,244 @@ class AppointmentApiTest extends TestCase
         ]);
         $rebookAt1030->assertStatus(201);
     }
+
+    /**
+     * قانون R9 - ثبت نوبت کد پیگیری ۶ رقمی تولید می‌کند و در صفحه پیگیری فقط همان نوبت برگردانده می‌شود
+     */
+    public function test_store_generates_6_digit_tracking_code_and_track_returns_only_that_appointment(): void
+    {
+        [$customer, $service] = $this->createTestCustomerAndService();
+        $futureDate = Carbon::now('Asia/Tehran')->addDays(2)->toDateString();
+        Appointment::whereDate('appointment_date', $futureDate)->delete();
+
+        $secondService = Service::create([
+            'name' => 'اصلاح ریش پیگیری',
+            'price' => 150000,
+            'duration' => 30,
+            'is_active' => true,
+        ]);
+
+        // ثبت نوبت اول برای همین مشتری
+        $firstCreate = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => 'امیر محمدی',
+            'customer_phone' => '09121234567',
+            'service_ids' => [$service->id, $secondService->id],
+            'appointment_date' => $futureDate,
+            'appointment_time' => '10:00',
+        ]);
+
+        $firstCreate->assertStatus(201);
+        $firstCode = $firstCreate->json('appointment.tracking_code');
+        $firstId = $firstCreate->json('appointment.id');
+
+        $this->assertNotEmpty($firstCode);
+        $this->assertMatchesRegularExpression('/^\d{6}$/', (string) $firstCode);
+
+        // ثبت نوبت دوم برای همان شماره موبایل در ساعت دیگر
+        $secondCreate = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => 'امیر محمدی',
+            'customer_phone' => '09121234567',
+            'service_ids' => [$service->id],
+            'appointment_date' => $futureDate,
+            'appointment_time' => '15:00',
+        ]);
+        $secondCreate->assertStatus(201);
+        $secondCode = $secondCreate->json('appointment.tracking_code');
+        $this->assertNotEquals($firstCode, $secondCode);
+
+        // پیگیری با موبایل و کد پیگیری نوبت اول: فقط همان نوبت اول برمی‌گردد
+        $trackRes = $this->postJson('/api/appointments/track', [
+            'customer_phone' => '09121234567',
+            'tracking_code' => $firstCode,
+        ]);
+
+        $trackRes->assertStatus(200)
+            ->assertJsonPath('appointment.id', $firstId)
+            ->assertJsonPath('appointment.tracking_code', $firstCode)
+            ->assertJsonPath('appointment.appointment_time', '10:00')
+            ->assertJsonPath('appointment.total_price', 400000)
+            ->assertJsonPath('appointment.total_duration', 60)
+            ->assertJsonPath('appointment.can_customer_cancel', true);
+    }
+
+    /**
+     * قانون R9 - تست کد پیگیری غلط یا شماره موبایل نامطابق (برگشت 404 و خطای اعتبارسنجی 422 برای فرمت نامعتبر)
+     */
+    public function test_track_appointment_fails_with_wrong_tracking_code_or_mismatched_phone(): void
+    {
+        [$customer, $service] = $this->createTestCustomerAndService();
+        $futureDate = Carbon::now('Asia/Tehran')->addDays(2)->toDateString();
+        Appointment::whereDate('appointment_date', $futureDate)->delete();
+
+        $createRes = $this->postJson('/api/appointments', [
+            'customer_id' => $customer->id,
+            'customer_name' => 'امیر محمدی',
+            'customer_phone' => '09121234567',
+            'service_ids' => [$service->id],
+            'appointment_date' => $futureDate,
+            'appointment_time' => '11:00',
+        ]);
+        $createRes->assertStatus(201);
+        $realCode = (string) $createRes->json('appointment.tracking_code');
+        $wrongCode = $realCode === '999999' ? '888888' : '999999';
+
+        // الف) کد پیگیری ۶ رقمی غلط برای شماره موبایل درست -> 404
+        $wrongCodeRes = $this->postJson('/api/appointments/track', [
+            'customer_phone' => '09121234567',
+            'tracking_code' => $wrongCode,
+        ]);
+        $wrongCodeRes->assertStatus(404)
+            ->assertJsonPath(
+                'message',
+                'نوبتی با این شماره موبایل و کد پیگیری یافت نشد. لطفاً اطلاعات واردشده را بررسی کنید.'
+            );
+
+        // ب) کد پیگیری درست اما شماره موبایل مشتری دیگر -> 404
+        $wrongPhoneRes = $this->postJson('/api/appointments/track', [
+            'customer_phone' => '09129998877',
+            'tracking_code' => $realCode,
+        ]);
+        $wrongPhoneRes->assertStatus(404);
+
+        // ج) تلاش برای لغو با کد پیگیری غلط -> 404
+        $cancelWrongCodeRes = $this->postJson('/api/appointments/track/cancel', [
+            'customer_phone' => '09121234567',
+            'tracking_code' => $wrongCode,
+        ]);
+        $cancelWrongCodeRes->assertStatus(404);
+
+        // د) کد پیگیری غیر ۶ رقمی -> 422
+        $invalidFormatRes = $this->postJson('/api/appointments/track', [
+            'customer_phone' => '09121234567',
+            'tracking_code' => '123',
+        ]);
+        $invalidFormatRes->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors' => ['tracking_code']]);
+    }
+
+    /**
+     * قانون R9 - لغو نوبت توسط مشتری تا مهلت لغو (بیش از ۲ ساعت مانده به نوبت) موفق می‌شود و بازه زمانی آزاد می‌گردد
+     */
+    public function test_customer_can_cancel_appointment_before_2_hour_deadline_and_slot_is_freed(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-26 10:00:00', 'Asia/Tehran'));
+
+        try {
+            [$customer, $service] = $this->createTestCustomerAndService();
+            $targetDate = '2026-11-26';
+            Appointment::whereDate('appointment_date', $targetDate)->delete();
+            \App\Models\TimeOff::whereDate('off_date', $targetDate)->delete();
+
+            // ثبت نوبت برای ساعت 13:00 (۳ ساعت مانده؛ بیش از مهلت ۲ ساعت)
+            $createRes = $this->postJson('/api/appointments', [
+                'customer_id' => $customer->id,
+                'customer_name' => 'مشتری لغو به موقع',
+                'customer_phone' => '09121234567',
+                'service_ids' => [$service->id],
+                'appointment_date' => $targetDate,
+                'appointment_time' => '13:00',
+            ]);
+            $createRes->assertStatus(201);
+            $trackingCode = $createRes->json('appointment.tracking_code');
+            $appointmentId = $createRes->json('appointment.id');
+
+            // لغو توسط مشتری در ساعت 10:00 (۳ ساعت قبل از 13:00)
+            $cancelRes = $this->postJson('/api/appointments/track/cancel', [
+                'customer_phone' => '09121234567',
+                'tracking_code' => $trackingCode,
+            ]);
+
+            $cancelRes->assertStatus(200)
+                ->assertJsonPath('message', 'نوبت شما با موفقیت لغو شد.')
+                ->assertJsonPath('appointment.status', 'cancelled')
+                ->assertJsonPath('appointment.can_customer_cancel', false);
+
+            $this->assertDatabaseHas('appointments', [
+                'id' => $appointmentId,
+                'status' => 'cancelled',
+            ]);
+
+            // بررسی آزاد شدن ساعت 13:00 پس از لغو مشتری
+            $slotsRes = $this->getJson("/api/appointments/booked-slots?date={$targetDate}&duration=30");
+            $this->assertContains('13:00', $slotsRes->json('available_slots'));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    /**
+     * قانون R9 - تست لغو دیرهنگام: بک‌اند لغو دیرتر از مهلت (کمتر از ۲ ساعت مانده یا زمان گذشته) را با کد 422 رد می‌کند
+     */
+    public function test_customer_cancel_is_rejected_when_within_2_hour_deadline_or_past(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-26 10:00:00', 'Asia/Tehran'));
+
+        try {
+            [$customer, $service] = $this->createTestCustomerAndService();
+            $targetDate = '2026-11-26';
+            Appointment::whereDate('appointment_date', $targetDate)->delete();
+            \App\Models\TimeOff::whereDate('off_date', $targetDate)->delete();
+
+            // ثبت نوبت در ساعت 10:00 برای ساعت 13:00 همان روز
+            $createRes = $this->postJson('/api/appointments', [
+                'customer_id' => $customer->id,
+                'customer_name' => 'مشتری لغو دیرهنگام',
+                'customer_phone' => '09121234567',
+                'service_ids' => [$service->id],
+                'appointment_date' => $targetDate,
+                'appointment_time' => '13:00',
+            ]);
+            $createRes->assertStatus(201);
+            $trackingCode = $createRes->json('appointment.tracking_code');
+            $appointmentId = $createRes->json('appointment.id');
+
+            // جلو بردن زمان به ساعت 11:30 (فقط ۱ ساعت و ۳۰ دقیقه مانده به نوبت 13:00؛ کمتر از مهلت ۲ ساعت)
+            Carbon::setTestNow(Carbon::parse('2026-11-26 11:30:00', 'Asia/Tehran'));
+
+            // ۱. در صفحه پیگیری، can_customer_cancel باید false باشد و دلیلش نوشته شود
+            $trackRes = $this->postJson('/api/appointments/track', [
+                'customer_phone' => '09121234567',
+                'tracking_code' => $trackingCode,
+            ]);
+            $trackRes->assertStatus(200)
+                ->assertJsonPath('appointment.can_customer_cancel', false)
+                ->assertJsonPath(
+                    'appointment.cancel_block_reason',
+                    'امکان لغو نوبت فقط تا 2 ساعت قبل از زمان نوبت وجود دارد و مهلت لغو این نوبت به پایان رسیده است.'
+                );
+
+            // ۲. درخواست لغو به بک‌اند باید با کد 422 رد شود و وضعیت نوبت active باقی بماند
+            $lateCancelRes = $this->postJson('/api/appointments/track/cancel', [
+                'customer_phone' => '09121234567',
+                'tracking_code' => $trackingCode,
+            ]);
+            $lateCancelRes->assertStatus(422)
+                ->assertJsonPath(
+                    'message',
+                    'امکان لغو نوبت فقط تا 2 ساعت قبل از زمان نوبت وجود دارد و مهلت لغو این نوبت به پایان رسیده است.'
+                );
+
+            $this->assertDatabaseHas('appointments', [
+                'id' => $appointmentId,
+                'status' => 'active',
+            ]);
+
+            // ۳. جلو بردن زمان به بعد از شروع نوبت (ساعت 13:30) -> همچنان با 422 رد می‌شود
+            Carbon::setTestNow(Carbon::parse('2026-11-26 13:30:00', 'Asia/Tehran'));
+            $pastCancelRes = $this->postJson('/api/appointments/track/cancel', [
+                'customer_phone' => '09121234567',
+                'tracking_code' => $trackingCode,
+            ]);
+            $pastCancelRes->assertStatus(422);
+
+            $this->assertDatabaseHas('appointments', [
+                'id' => $appointmentId,
+                'status' => 'active',
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
 }

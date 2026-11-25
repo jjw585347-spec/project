@@ -6,6 +6,7 @@ import CustomerAuthPage from './pages/CustomerAuthPage'
 import HomePage from './pages/HomePage'
 import OwnerPage from './pages/OwnerPage'
 import RoleSelectPage from './pages/RoleSelectPage'
+import TrackAppointmentPage from './pages/TrackAppointmentPage'
 import { apiRequest } from './utils/api'
 
 const CUSTOMER_STORAGE_KEY = 'barbershop_logged_in_customer'
@@ -150,6 +151,15 @@ function App() {
               <RoleSelectPage
                 onSelectCustomer={() => navigate('/login')}
                 onSelectOwner={() => navigate(adminToken ? '/owner' : '/owner/login')}
+              />
+            }
+          />
+          <Route
+            path="/track"
+            element={
+              <TrackAppointmentPage
+                customer={loggedInCustomer}
+                onBack={() => navigate(loggedInCustomer ? '/services' : '/')}
               />
             }
           />

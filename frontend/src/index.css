@@ -136,18 +136,18 @@ option {
   transition: transform 0.18s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-.primary-btn:hover,
-.secondary-btn:hover,
-.logo-btn:hover,
-.cancel-btn:hover {
+.primary-btn:hover:not(:disabled),
+.secondary-btn:hover:not(:disabled),
+.logo-btn:hover:not(:disabled),
+.cancel-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 8px 22px rgba(17, 24, 39, 0.14);
 }
 
-.primary-btn:active,
-.secondary-btn:active,
-.logo-btn:active,
-.cancel-btn:active {
+.primary-btn:active:not(:disabled),
+.secondary-btn:active:not(:disabled),
+.logo-btn:active:not(:disabled),
+.cancel-btn:active:not(:disabled) {
   transform: translateY(0);
 }
 
@@ -157,13 +157,14 @@ option {
   color: #ffffff;
 }
 
-.primary-btn:hover {
+.primary-btn:hover:not(:disabled) {
   background-color: var(--green-hover);
 }
 
 .primary-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+  pointer-events: none;
   transform: none;
 }
 
@@ -175,8 +176,8 @@ option {
   box-shadow: 0 4px 16px rgba(17, 24, 39, 0.1), 0 0 0 1px rgba(17, 24, 39, 0.06);
 }
 
-.secondary-btn:hover,
-.logo-btn:hover {
+.secondary-btn:hover:not(:disabled),
+.logo-btn:hover:not(:disabled) {
   background-color: var(--surface-subtle);
 }
 
@@ -200,14 +201,16 @@ option {
   font-size: 19px;
 }
 
-.cancel-btn:hover {
+.cancel-btn:hover:not(:disabled) {
   background-color: var(--danger-hover);
 }
 
 .cancel-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+  pointer-events: none;
   transform: none;
+  box-shadow: none;
 }
 
 /* ==================== زبان بصری یکپارچه کارت‌ها ==================== */
@@ -367,13 +370,233 @@ option {
 .booking-action {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
   margin-top: 36px;
 }
 
 .page-bottom-nav {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-top: 28px;
+}
+
+/* ==================== مراحل ۴گانه رزرو و خلاصه زنده انتخاب مشتری ==================== */
+.booking-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.booking-step-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 12px;
+  background-color: var(--surface-subtle);
+  color: var(--text-muted);
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.08);
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.booking-step-pill.active {
+  background-color: var(--green-primary);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(13, 101, 45, 0.25);
+}
+
+.booking-step-pill.completed {
+  background-color: #ecfdf5;
+  color: var(--green-primary);
+  box-shadow: 0 0 0 1px rgba(13, 101, 45, 0.28);
+}
+
+.booking-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: rgba(17, 24, 39, 0.08);
+  font-size: 17px;
+}
+
+.booking-step-pill.active .booking-step-num {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+.live-selection-bar {
+  background-color: #ecfdf5;
+  color: var(--success-text);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 14px rgba(13, 101, 45, 0.08), 0 0 0 1px rgba(13, 101, 45, 0.2);
+}
+
+.live-selection-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(6, 95, 70, 0.15);
+}
+
+.live-selection-metrics,
+.live-selection-datetime {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 19px;
+  padding-top: 8px;
+}
+
+.wizard-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.wizard-actions button {
+  flex: 1;
+}
+
+.confirm-step-title {
+  margin: 0 0 8px;
+  font-size: 25px;
+  font-weight: bold;
+  color: var(--text-dark);
+  text-align: center;
+}
+
+.confirm-step-subtitle {
+  margin: 0 0 16px;
+  font-size: 19px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.confirm-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.confirm-detail-row {
+  background-color: var(--surface-subtle);
+  color: var(--text-dark);
+}
+
+.tracking-code-banner {
+  background-color: #ffffff;
+  color: var(--success-text);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(6, 95, 70, 0.1), 0 0 0 1.5px var(--green-primary);
+}
+
+.tracking-code-banner > span {
+  display: block;
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.tracking-code-digits {
+  display: inline-block;
+  font-size: 34px;
+  letter-spacing: 3px;
+  color: var(--green-primary);
+  padding: 2px 14px;
+}
+
+.tracking-code-hint {
+  margin: 8px 0 0;
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.summary-actions button {
+  flex: 1;
+}
+
+/* ==================== صفحه پیگیری نوبت (R9) ==================== */
+.tracked-appointment-card {
+  margin-top: 24px;
+  background-color: #ffffff;
+  color: var(--text-dark);
+  border-radius: 18px;
+  padding: 26px 24px;
+  box-shadow: 0 8px 28px rgba(17, 24, 39, 0.08), 0 0 0 1px rgba(17, 24, 39, 0.05);
+}
+
+.tracked-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.tracked-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: bold;
+  color: var(--text-dark);
+}
+
+.tracked-cancel-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(17, 24, 39, 0.08);
+  text-align: center;
+}
+
+.tracked-cancel-btn {
+  width: 100%;
+  padding: 13px 24px;
+  font-size: 22px;
+}
+
+.cancel-disabled-reason {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  font-size: 19px;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.cancel-deadline-hint {
+  margin: 10px 0 0;
+  font-size: 18px;
+  color: var(--text-muted);
 }
 
 /* ==================== زبان بصری یکپارچه پیام‌ها (خطا و موفقیت) ==================== */

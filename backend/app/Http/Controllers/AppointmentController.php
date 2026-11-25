@@ -520,6 +520,8 @@ class AppointmentController extends Controller
         /** @var Service $primaryService */
         $primaryService = $selectedServices->first();
 
+        $trackingCode = Appointment::generateUniqueTrackingCode();
+
         // اتصال نوبت به حساب مشتری و ذخیره تمام خدمات انتخاب‌شده در جدول رابط appointment_service
         $appointment = Appointment::create([
             'customer_id' => $customer->id,
@@ -529,6 +531,7 @@ class AppointmentController extends Controller
             'appointment_date' => $rawDate,
             'appointment_time' => $rawTime,
             'status' => 'active',
+            'tracking_code' => $trackingCode,
         ]);
 
         $appointment->services()->sync($selectedServices->pluck('id')->all());
@@ -544,6 +547,156 @@ class AppointmentController extends Controller
                 'appointment' => $appointment,
             ],
             201,
+            [],
+            JSON_UNESCAPED_UNICODE
+        );
+    }
+
+    /**
+     * اعتبارسنجی شماره موبایل و کد پیگیری ۶ رقمی برای صفحه «پیگیری نوبت» (R9)
+     *
+     * @return array{0: array<string, string>, 1: string, 2: string}
+     */
+    private static function validateTrackingCredentials(Request $request): array
+    {
+        $errors = [];
+
+        $customerPhone = CustomerController::normalizeDigits(
+            trim((string) self::extractInput($request, 'customer_phone', ''))
+        );
+        $trackingCode = CustomerController::normalizeDigits(
+            trim((string) self::extractInput($request, 'tracking_code', ''))
+        );
+
+        if ($customerPhone === '') {
+            $errors['customer_phone'] = 'لطفاً شماره موبایل را وارد کنید.';
+        } elseif (!preg_match('/^09\d{9}$/', $customerPhone)) {
+            $errors['customer_phone'] = 'شماره موبایل واردشده معتبر نیست. لطفاً یک شماره موبایل ۱۱ رقمی که با ۰۹ شروع می‌شود وارد کنید.';
+        }
+
+        if ($trackingCode === '') {
+            $errors['tracking_code'] = 'لطفاً کد پیگیری ۶ رقمی را وارد کنید.';
+        } elseif (!preg_match('/^\d{6}$/', $trackingCode)) {
+            $errors['tracking_code'] = 'کد پیگیری باید یک عدد ۶ رقمی باشد.';
+        }
+
+        return [$errors, $customerPhone, $trackingCode];
+    }
+
+    /**
+     * پیگیری و مشاهده فقط همان نوبت با شماره موبایل و کد پیگیری ۶ رقمی (R9):
+     * POST /api/appointments/track
+     */
+    public function track(Request $request): JsonResponse
+    {
+        [$errors, $customerPhone, $trackingCode] = self::validateTrackingCredentials($request);
+
+        if (!empty($errors)) {
+            return response()->json(
+                [
+                    'message' => reset($errors),
+                    'errors' => $errors,
+                ],
+                422,
+                [],
+                JSON_UNESCAPED_UNICODE
+            );
+        }
+
+        $appointment = Appointment::with([
+            'service:id,name,price,duration',
+            'services:id,name,price,duration',
+        ])
+            ->where('customer_phone', $customerPhone)
+            ->where('tracking_code', $trackingCode)
+            ->first();
+
+        if (!$appointment) {
+            return response()->json(
+                [
+                    'message' => 'نوبتی با این شماره موبایل و کد پیگیری یافت نشد. لطفاً اطلاعات واردشده را بررسی کنید.',
+                ],
+                404,
+                [],
+                JSON_UNESCAPED_UNICODE
+            );
+        }
+
+        return response()->json(
+            [
+                'appointment' => $appointment,
+            ],
+            200,
+            [],
+            JSON_UNESCAPED_UNICODE
+        );
+    }
+
+    /**
+     * لغو نوبت توسط خود مشتری با شماره موبایل و کد پیگیری تا مهلت لغو (پیش‌فرض ۲ ساعت قبل طبق R9):
+     * POST /api/appointments/track/cancel
+     */
+    public function customerCancel(Request $request): JsonResponse
+    {
+        [$errors, $customerPhone, $trackingCode] = self::validateTrackingCredentials($request);
+
+        if (!empty($errors)) {
+            return response()->json(
+                [
+                    'message' => reset($errors),
+                    'errors' => $errors,
+                ],
+                422,
+                [],
+                JSON_UNESCAPED_UNICODE
+            );
+        }
+
+        $appointment = Appointment::with([
+            'service:id,name,price,duration',
+            'services:id,name,price,duration',
+        ])
+            ->where('customer_phone', $customerPhone)
+            ->where('tracking_code', $trackingCode)
+            ->first();
+
+        if (!$appointment) {
+            return response()->json(
+                [
+                    'message' => 'نوبتی با این شماره موبایل و کد پیگیری یافت نشد. لطفاً اطلاعات واردشده را بررسی کنید.',
+                ],
+                404,
+                [],
+                JSON_UNESCAPED_UNICODE
+            );
+        }
+
+        $evaluation = $appointment->evaluateCustomerCancellation();
+        if (!$evaluation['can_cancel']) {
+            return response()->json(
+                [
+                    'message' => $evaluation['reason'] ?: 'مهلت لغو این نوبت به پایان رسیده است.',
+                    'appointment' => $appointment,
+                ],
+                422,
+                [],
+                JSON_UNESCAPED_UNICODE
+            );
+        }
+
+        $appointment->status = 'cancelled';
+        $appointment->save();
+        $appointment->load([
+            'service:id,name,price,duration',
+            'services:id,name,price,duration',
+        ]);
+
+        return response()->json(
+            [
+                'message' => 'نوبت شما با موفقیت لغو شد.',
+                'appointment' => $appointment,
+            ],
+            200,
             [],
             JSON_UNESCAPED_UNICODE
         );
