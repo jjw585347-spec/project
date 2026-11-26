@@ -12,22 +12,6 @@ use Illuminate\Http\Request;
 class AppointmentController extends Controller
 {
     /**
-     * بازه‌های زمانی پایه شروع نوبت در ساعت کاری پیش‌فرض آرایشگاه (از ۱۰:۰۰ تا ۱۹:۳۰؛ پایان کار ۲۰:۰۰ طبق R6)
-     */
-    public const ALLOWED_TIME_SLOTS = [
-        '10:00', '10:30',
-        '11:00', '11:30',
-        '12:00', '12:30',
-        '13:00', '13:30',
-        '14:00', '14:30',
-        '15:00', '15:30',
-        '16:00', '16:30',
-        '17:00', '17:30',
-        '18:00', '18:30',
-        '19:00', '19:30',
-    ];
-
-    /**
      * استخراج داده‌های ورودی از Request (حتی اگر هدر Content-Type ارسال نشده باشد)
      */
     private static function extractInput(Request $request, string $key, mixed $default = null): mixed
@@ -200,13 +184,14 @@ class AppointmentController extends Controller
 
         $scheduleStatus = WorkingScheduleController::getDateScheduleStatus($date);
         $bookedIntervals = self::getActiveBookedIntervalsForDate($date);
+        $stepMinutes = max(1, (int) config('app.slot_step_minutes'));
 
-        // تمام گام‌های ۳۰ دقیقه‌ای که داخل بازه نوبت‌های فعال قرار می‌گیرند (برای booked_slots)
+        // تمام گام‌های زمانی که داخل بازه نوبت‌های فعال قرار می‌گیرند (برای booked_slots)
         $bookedSlots = [];
         foreach ($scheduleStatus['working_slots'] as $slot) {
             $slotMin = WorkingScheduleController::timeToMinutes($slot);
             foreach ($bookedIntervals as $interval) {
-                if (WorkingScheduleController::intervalsOverlap($slotMin, $slotMin + 30, $interval['start_minutes'], $interval['end_minutes'])) {
+                if (WorkingScheduleController::intervalsOverlap($slotMin, $slotMin + $stepMinutes, $interval['start_minutes'], $interval['end_minutes'])) {
                     $bookedSlots[] = $slot;
                     break;
                 }
@@ -214,7 +199,7 @@ class AppointmentController extends Controller
         }
 
         // محاسبه مجموع مدت خدمات انتخاب‌شده (در صورت ارسال service_ids یا duration)
-        $requestedDuration = 30;
+        $requestedDuration = $stepMinutes;
         $rawDuration = CustomerController::normalizeDigits((string) $request->query('duration', ''));
         $rawServiceIds = $request->query('service_ids');
 
@@ -403,7 +388,7 @@ class AppointmentController extends Controller
 
         // ۵. اعتبارسنجی ساعت نوبت و جا شدن کامل مجموع خدمات انتخاب‌شده در بازه (R3, R5, R6, R7, R8)
         if (!WorkingScheduleController::isValidHalfHourTime($rawTime)) {
-            $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده معتبر نیست. ساعت کاری آرایشگاه از ۱۰:۰۰ تا ۲۰:۰۰ است.';
+            $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده معتبر نیست.';
         } elseif ($scheduleStatus !== null && !$scheduleStatus['is_closed']) {
             $slotStartMin = WorkingScheduleController::timeToMinutes($rawTime);
             $slotEndMin = $slotStartMin + $totalDuration;
@@ -466,12 +451,21 @@ class AppointmentController extends Controller
                     }
                 }
             }
-        } elseif (!in_array($rawTime, self::ALLOWED_TIME_SLOTS, true)) {
-            $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده معتبر نیست. ساعت کاری آرایشگاه از ۱۰:۰۰ تا ۲۰:۰۰ است.';
-        } elseif ($isDateFormatValid && $appointmentDate !== null) {
-            $appointmentDateTime = Carbon::createFromFormat('Y-m-d H:i', $rawDate . ' ' . $rawTime, 'Asia/Tehran');
-            if ($appointmentDate->equalTo($today) && $appointmentDateTime->lessThanOrEqualTo($now)) {
-                $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده در امروز گذشته است. لطفاً ساعت دیگری در ادامه امروز یا روز دیگری را انتخاب کنید.';
+        } else {
+            WorkingScheduleController::ensureDefaultWeeklyHours();
+            $defaultStart = (string) config('app.default_work_start_time');
+            $defaultEnd = (string) config('app.default_work_end_time');
+            $slotStartMin = WorkingScheduleController::timeToMinutes($rawTime);
+            $workStartMin = WorkingScheduleController::timeToMinutes($defaultStart);
+            $workEndMin = WorkingScheduleController::timeToMinutes($defaultEnd);
+
+            if ($slotStartMin < $workStartMin || $slotStartMin >= $workEndMin) {
+                $errors['appointment_time'] = "ثبت نوبت ناموفق بود: ساعت انتخاب‌شده معتبر نیست. ساعت کاری آرایشگاه از {$defaultStart} تا {$defaultEnd} است.";
+            } elseif ($isDateFormatValid && $appointmentDate !== null) {
+                $appointmentDateTime = Carbon::createFromFormat('Y-m-d H:i', $rawDate . ' ' . $rawTime, 'Asia/Tehran');
+                if ($appointmentDate->equalTo($today) && $appointmentDateTime->lessThanOrEqualTo($now)) {
+                    $errors['appointment_time'] = 'ثبت نوبت ناموفق بود: ساعت انتخاب‌شده در امروز گذشته است. لطفاً ساعت دیگری در ادامه امروز یا روز دیگری را انتخاب کنید.';
+                }
             }
         }
 

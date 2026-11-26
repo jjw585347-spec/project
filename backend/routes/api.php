@@ -4,9 +4,13 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\WorkingScheduleController;
 use App\Http\Middleware\EnsureAdminAuthenticated;
 use Illuminate\Support\Facades\Route;
+
+// تنظیمات عمومی آرایشگاه (نام آرایشگاه، مهلت لغو و برنامه هفتگی)
+Route::get('/settings', [SettingController::class, 'publicIndex']);
 
 // خدمات آرایشگاه
 Route::get('/services', [ServiceController::class, 'index']);
@@ -45,4 +49,9 @@ Route::middleware(EnsureAdminAuthenticated::class)->group(function () {
     Route::post('/admin/schedule/holidays', [WorkingScheduleController::class, 'storeHoliday']);
     Route::post('/admin/schedule/leaves', [WorkingScheduleController::class, 'storeLeave']);
     Route::delete('/admin/schedule/time-offs/{id}', [WorkingScheduleController::class, 'destroyTimeOff']);
+
+    // صفحه تنظیمات کامل پنل مدیریت (نام آرایشگاه، مهلت لغو، شماره موبایل و رمز ورود با پرسیدن رمز فعلی)
+    Route::get('/admin/settings', [SettingController::class, 'adminIndex']);
+    Route::put('/admin/settings/general', [SettingController::class, 'updateGeneral']);
+    Route::put('/admin/settings/credentials', [AdminAuthController::class, 'updateCredentials']);
 });

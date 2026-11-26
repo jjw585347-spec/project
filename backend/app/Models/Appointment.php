@@ -42,13 +42,22 @@ class Appointment extends Model
     }
 
     /**
-     * مهلت لغو نوبت توسط مشتری بر حسب ساعت قبل از زمان نوبت (پیش‌فرض ۲ ساعت طبق R9)
+     * مهلت لغو نوبت توسط مشتری بر حسب ساعت قبل از زمان نوبت (قابل تغییر از صفحه تنظیمات پنل مدیریت - قانون R9)
      */
     public static function getCancelDeadlineHours(): int
     {
-        $configured = (int) config('app.cancel_deadline_hours', 2);
+        try {
+            $setting = ShopSetting::current();
+            if ($setting && (int) $setting->cancel_deadline_hours > 0) {
+                return (int) $setting->cancel_deadline_hours;
+            }
+        } catch (\Throwable) {
+            // در صورت عدم وجود جدول در لحظه اجرای مایگریشن اولیه، از فایل تنظیمات خوانده می‌شود
+        }
 
-        return $configured > 0 ? $configured : 2;
+        $configured = (int) config('app.cancel_deadline_hours');
+
+        return $configured > 0 ? $configured : 1;
     }
 
     public function getCancelDeadlineHoursAttribute(): int

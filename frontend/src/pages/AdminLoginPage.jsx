@@ -4,6 +4,7 @@ import { apiRequest } from '../utils/api'
 import { toEnglishDigits } from '../utils/persian'
 
 export default function AdminLoginPage({ onSuccess, onBack }) {
+  const [username, setUsername] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
@@ -33,6 +34,7 @@ export default function AdminLoginPage({ onSuccess, onBack }) {
     setError('')
     setFieldErrors({})
 
+    const normalizedUsername = toEnglishDigits(username).trim()
     const normalizedPhone = toEnglishDigits(phone).trim()
     const normalizedPassword = toEnglishDigits(password).trim()
 
@@ -41,6 +43,7 @@ export default function AdminLoginPage({ onSuccess, onBack }) {
       const data = await apiRequest('/api/admin/login', {
         method: 'POST',
         body: JSON.stringify({
+          username: normalizedUsername,
           phone: normalizedPhone,
           password: normalizedPassword,
         }),
@@ -63,10 +66,31 @@ export default function AdminLoginPage({ onSuccess, onBack }) {
 
       <form className="booking-form" onSubmit={handleSubmit} noValidate>
         <div className="form-group">
-          <label htmlFor="adminPhone">نام کاربری مدیر</label>
+          <label htmlFor="adminUsername">نام کاربری مدیر</label>
+          <input
+            id="adminUsername"
+            type="text"
+            className={fieldErrors.username ? 'input-invalid' : ''}
+            aria-invalid={Boolean(fieldErrors.username)}
+            value={username}
+            onChange={(e) => {
+              setUsername(e.target.value)
+              clearFieldError('username')
+            }}
+            placeholder="نام کاربری مدیر را وارد کنید"
+          />
+          {fieldErrors.username && (
+            <p className="field-error" role="alert">
+              {fieldErrors.username}
+            </p>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="adminPhone">شماره موبایل مدیر</label>
           <input
             id="adminPhone"
-            type="text"
+            type="tel"
             className={fieldErrors.phone ? 'input-invalid' : ''}
             aria-invalid={Boolean(fieldErrors.phone)}
             value={phone}
@@ -74,7 +98,7 @@ export default function AdminLoginPage({ onSuccess, onBack }) {
               setPhone(e.target.value)
               clearFieldError('phone')
             }}
-            placeholder="نام کاربری مدیر را وارد کنید"
+            placeholder="شماره موبایل ۱۱ رقمی مدیر (مثلاً 09123456789)"
           />
           {fieldErrors.phone && (
             <p className="field-error" role="alert">

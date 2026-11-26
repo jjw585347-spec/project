@@ -15,18 +15,8 @@ const SCHEDULE_TIME_OPTIONS = (() => {
   return list
 })()
 
-const DEFAULT_WEEKLY_HOURS = [
-  { day_of_week: 0, day_name: 'شنبه', start_time: '10:00', end_time: '20:00', is_closed: false },
-  { day_of_week: 1, day_name: 'یکشنبه', start_time: '10:00', end_time: '20:00', is_closed: false },
-  { day_of_week: 2, day_name: 'دوشنبه', start_time: '10:00', end_time: '20:00', is_closed: false },
-  { day_of_week: 3, day_name: 'سه‌شنبه', start_time: '10:00', end_time: '20:00', is_closed: false },
-  { day_of_week: 4, day_name: 'چهارشنبه', start_time: '10:00', end_time: '20:00', is_closed: false },
-  { day_of_week: 5, day_name: 'پنج‌شنبه', start_time: '10:00', end_time: '20:00', is_closed: false },
-  { day_of_week: 6, day_name: 'جمعه', start_time: '10:00', end_time: '20:00', is_closed: true },
-]
-
 export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
-  const [weeklyHours, setWeeklyHours] = useState(DEFAULT_WEEKLY_HOURS)
+  const [weeklyHours, setWeeklyHours] = useState([])
   const [holidays, setHolidays] = useState([])
   const [leaves, setLeaves] = useState([])
   const [loading, setLoading] = useState(false)
@@ -344,9 +334,7 @@ export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
 
       {/* ۱. تنظیم ساعت کاری روزهای هفته (شنبه تا جمعه) */}
       <form className="booking-form admin-service-form" onSubmit={handleSaveWeekly} noValidate>
-        <h2 className="admin-section-title">
-          ۱. برنامه هفتگی ساعت کاری (پیش‌فرض: شنبه تا پنج‌شنبه ۱۰ تا ۲۰، جمعه تعطیل)
-        </h2>
+        <h2 className="admin-section-title">برنامه هفتگی ساعت کاری</h2>
 
         {loading ? (
           <p className="owner-empty">در حال بارگذاری برنامه هفتگی...</p>
@@ -444,7 +432,7 @@ export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
 
       {/* ۲. تعطیل کردن یک تاریخ خاص */}
       <form className="booking-form admin-service-form" onSubmit={handleAddHoliday} noValidate>
-        <h2 className="admin-section-title">۲. تعطیل کردن یک تاریخ خاص (مثلاً سه‌شنبه هفته بعد)</h2>
+        <h2 className="admin-section-title">تعطیل کردن یک تاریخ خاص</h2>
 
         <div className="admin-schedule-two-cols">
           <div className="form-group">
@@ -517,9 +505,7 @@ export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
 
       {/* ۳. ثبت مرخصی چندساعته در یک روز */}
       <form className="booking-form admin-service-form" onSubmit={handleAddLeave} noValidate>
-        <h2 className="admin-section-title">
-          ۳. ثبت مرخصی چندساعته در یک روز (مثلاً امروز از ۱۴:۰۰ تا ۱۶:۰۰)
-        </h2>
+        <h2 className="admin-section-title">ثبت مرخصی چندساعته در یک روز</h2>
 
         <div className="admin-schedule-four-cols">
           <div className="form-group">

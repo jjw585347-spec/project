@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminScheduleSection from '../components/AdminScheduleSection'
 import AdminServicesSection from '../components/AdminServicesSection'
+import AdminSettingsSection from '../components/AdminSettingsSection'
 import JalaliDatePicker from '../components/JalaliDatePicker'
 import { apiRequest } from '../utils/api'
 import { formatGregorianToJalaliDisplay, getTodayIsoDate } from '../utils/jalali'
@@ -21,7 +22,7 @@ function loadInitialOwnerDate() {
 function loadInitialOwnerTab() {
   try {
     const saved = sessionStorage.getItem(OWNER_TAB_KEY)
-    if (saved === 'services' || saved === 'schedule') {
+    if (saved === 'services' || saved === 'schedule' || saved === 'settings') {
       return saved
     }
     return 'appointments'
@@ -36,6 +37,7 @@ export default function OwnerPage({
   onLogout,
   onBack,
   onServicesChanged,
+  onSettingsChanged,
 }) {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(loadInitialOwnerTab)
@@ -150,11 +152,13 @@ export default function OwnerPage({
   return (
     <div className="owner-container">
       <h1 className="title">
-        {activeTab === 'services'
-          ? 'پنل مدیریت — مدیریت خدمات آرایشگاه'
-          : activeTab === 'schedule'
-            ? 'پنل مدیریت — ساعت کاری، تعطیلات و مرخصی'
-            : 'پنل مدیریت — لیست نوبت‌های آرایشگاه'}
+        {activeTab === 'settings'
+          ? 'پنل مدیریت — تنظیمات کامل آرایشگاه'
+          : activeTab === 'services'
+            ? 'پنل مدیریت — مدیریت خدمات آرایشگاه'
+            : activeTab === 'schedule'
+              ? 'پنل مدیریت — ساعت کاری، تعطیلات و مرخصی'
+              : 'پنل مدیریت — لیست نوبت‌های آرایشگاه'}
       </h1>
 
       <div className="owner-tabs-bar">
@@ -165,6 +169,13 @@ export default function OwnerPage({
             onClick={() => setActiveTab('appointments')}
           >
             لیست نوبت‌ها
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'settings' ? 'primary-btn' : 'secondary-btn'}
+            onClick={() => setActiveTab('settings')}
+          >
+            تنظیمات
           </button>
           <button
             type="button"
@@ -187,7 +198,14 @@ export default function OwnerPage({
         </button>
       </div>
 
-      {activeTab === 'services' ? (
+      {activeTab === 'settings' ? (
+        <AdminSettingsSection
+          adminToken={adminToken}
+          onUnauthorized={onUnauthorized}
+          onServicesChanged={onServicesChanged}
+          onSettingsChanged={onSettingsChanged}
+        />
+      ) : activeTab === 'services' ? (
         <AdminServicesSection
           adminToken={adminToken}
           onUnauthorized={onUnauthorized}

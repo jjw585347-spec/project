@@ -34,8 +34,7 @@ class WorkingScheduleController extends Controller
     }
 
     /**
-     * اطمینان از وجود ۷ ردیف پیش‌فرض ساعت کاری هفتگی در دیتابیس:
-     * شنبه تا پنج‌شنبه ۱۰:۰۰ تا ۲۰:۰۰ و جمعه تعطیل
+     * اطمینان از وجود ۷ ردیف پیش‌فرض ساعت کاری هفتگی در دیتابیس بر اساس مقادیر اولیه فایل تنظیمات (config/app.php)
      */
     public static function ensureDefaultWeeklyHours(): void
     {
@@ -44,20 +43,24 @@ class WorkingScheduleController extends Controller
             return;
         }
 
+        $defaultStart = (string) config('app.default_work_start_time');
+        $defaultEnd = (string) config('app.default_work_end_time');
+        $defaultClosedDay = (int) config('app.default_closed_day_of_week');
+
         for ($day = 0; $day <= 6; $day++) {
             if (!in_array($day, $existingDays, true)) {
                 WorkingHour::create([
                     'day_of_week' => $day,
-                    'start_time' => '10:00',
-                    'end_time' => '20:00',
-                    'is_closed' => $day === 6, // جمعه پیش‌فرض تعطیل
+                    'start_time' => $defaultStart,
+                    'end_time' => $defaultEnd,
+                    'is_closed' => $day === $defaultClosedDay,
                 ]);
             }
         }
     }
 
     /**
-     * تولید بازه‌های ۳۰ دقیقه‌ای شروع نوبت بین دو ساعت (از start_time تا قبل از end_time طبق R6)
+     * تولید بازه‌های زمانی شروع نوبت بین دو ساعت (از start_time تا قبل از end_time طبق R6)
      */
     public static function generateSlotsBetween(string $startTime, string $endTime): array
     {
@@ -67,13 +70,14 @@ class WorkingScheduleController extends Controller
 
         $startMinutes = self::timeToMinutes($startTime);
         $endMinutes = self::timeToMinutes($endTime);
+        $stepMinutes = max(1, (int) config('app.slot_step_minutes'));
 
         if ($startMinutes >= $endMinutes) {
             return [];
         }
 
         $slots = [];
-        for ($m = $startMinutes; $m < $endMinutes; $m += 30) {
+        for ($m = $startMinutes; $m < $endMinutes; $m += $stepMinutes) {
             $slots[] = self::minutesToTime($m);
         }
 
@@ -171,9 +175,13 @@ class WorkingScheduleController extends Controller
 
         /** @var WorkingHour|null $weeklyHour */
         $weeklyHour = WorkingHour::where('day_of_week', $dayOfWeek)->first();
-        $startTime = $weeklyHour ? $weeklyHour->start_time : '10:00';
-        $endTime = $weeklyHour ? $weeklyHour->end_time : '20:00';
-        $isWeeklyClosed = $weeklyHour ? (bool) $weeklyHour->is_closed : ($dayOfWeek === 6);
+        $defaultStart = (string) config('app.default_work_start_time');
+        $defaultEnd = (string) config('app.default_work_end_time');
+        $defaultClosedDay = (int) config('app.default_closed_day_of_week');
+
+        $startTime = $weeklyHour ? $weeklyHour->start_time : $defaultStart;
+        $endTime = $weeklyHour ? $weeklyHour->end_time : $defaultEnd;
+        $isWeeklyClosed = $weeklyHour ? (bool) $weeklyHour->is_closed : ($dayOfWeek === $defaultClosedDay);
 
         $fullDayHoliday = TimeOff::whereDate('off_date', $date)
             ->where('type', 'full_day')
@@ -315,14 +323,16 @@ class WorkingScheduleController extends Controller
                 continue;
             }
 
+            $defaultStart = (string) config('app.default_work_start_time');
+            $defaultEnd = (string) config('app.default_work_end_time');
             $isClosed = filter_var($item['is_closed'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            $startTime = CustomerController::normalizeDigits(trim((string) ($item['start_time'] ?? '10:00')));
-            $endTime = CustomerController::normalizeDigits(trim((string) ($item['end_time'] ?? '20:00')));
+            $startTime = CustomerController::normalizeDigits(trim((string) ($item['start_time'] ?? $defaultStart)));
+            $endTime = CustomerController::normalizeDigits(trim((string) ($item['end_time'] ?? $defaultEnd)));
             $dayName = self::DAY_NAMES[$dayOfWeek];
 
             if (!$isClosed) {
                 if (!self::isValidHalfHourTime($startTime) || !self::isValidHalfHourTime($endTime)) {
-                    $errors["day_{$dayOfWeek}"] = "ساعت شروع و پایان روز {$dayName} باید با فرمت معتبر نیم‌ساعته (مثلاً ۱۰:۰۰ تا ۲۰:۰۰) باشد.";
+                    $errors["day_{$dayOfWeek}"] = "ساعت شروع و پایان روز {$dayName} باید با فرمت معتبر نیم‌ساعته باشد.";
                     continue;
                 }
 
@@ -332,10 +342,10 @@ class WorkingScheduleController extends Controller
                 }
             } else {
                 if (!self::isValidHalfHourTime($startTime)) {
-                    $startTime = '10:00';
+                    $startTime = $defaultStart;
                 }
                 if (!self::isValidHalfHourTime($endTime)) {
-                    $endTime = '20:00';
+                    $endTime = $defaultEnd;
                 }
             }
 

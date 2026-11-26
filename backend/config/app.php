@@ -69,11 +69,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | مهلت لغو نوبت توسط مشتری (ساعت قبل از شروع نوبت - قانون R9)
+    | تنظیمات اولیه آرایشگاه (نام آرایشگاه، ساعت کاری پیش‌فرض و مهلت لغو نوبت - قانون R9)
     |--------------------------------------------------------------------------
     */
 
+    'shop_name' => env('SHOP_NAME', 'پیرایش عارف'),
+
     'cancel_deadline_hours' => (int) env('APPOINTMENT_CANCEL_DEADLINE_HOURS', 2),
+
+    'default_work_start_time' => env('DEFAULT_WORK_START_TIME', '10:00'),
+
+    'default_work_end_time' => env('DEFAULT_WORK_END_TIME', '20:00'),
+
+    'default_closed_day_of_week' => (int) env('DEFAULT_CLOSED_DAY_OF_WEEK', 6),
+
+    'slot_step_minutes' => (int) env('APPOINTMENT_SLOT_STEP_MINUTES', 30),
 
     /*
     |--------------------------------------------------------------------------

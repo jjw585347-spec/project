@@ -32,6 +32,10 @@ function loadStoredAdminToken() {
 function App() {
   const [services, setServices] = useState([])
   const [servicesError, setServicesError] = useState('')
+  const [shopSettings, setShopSettings] = useState({
+    shop_name: '',
+    cancel_deadline_hours: null,
+  })
   const [loggedInCustomer, setLoggedInCustomer] = useState(loadStoredCustomer)
   const [adminToken, setAdminToken] = useState(loadStoredAdminToken)
   const navigate = useNavigate()
@@ -65,6 +69,40 @@ function App() {
     }
   }
 
+  // دریافت تنظیمات عمومی آرایشگاه (نام آرایشگاه و مهلت لغو) از بک‌اند
+  function fetchShopSettings() {
+    apiRequest('/api/settings')
+      .then((data) => {
+        if (data && typeof data === 'object') {
+          setShopSettings((prev) => ({
+            ...prev,
+            shop_name: data.shop_name || prev.shop_name,
+            cancel_deadline_hours:
+              data.cancel_deadline_hours !== undefined && data.cancel_deadline_hours !== null
+                ? Number(data.cancel_deadline_hours)
+                : prev.cancel_deadline_hours,
+          }))
+          if (data.shop_name) {
+            document.title = data.shop_name
+          }
+        }
+      })
+      .catch(() => {})
+  }
+
+  function handleSettingsChanged(updated) {
+    if (updated && typeof updated === 'object') {
+      setShopSettings((prev) => ({
+        ...prev,
+        ...updated,
+      }))
+      if (updated.shop_name) {
+        document.title = updated.shop_name
+      }
+    }
+    fetchShopSettings()
+  }
+
   // دریافت لیست خدمات از بک‌اند
   function fetchServices() {
     setServicesError('')
@@ -78,12 +116,16 @@ function App() {
   }
 
   useEffect(() => {
+    fetchShopSettings()
     fetchServices()
   }, [])
 
   useEffect(() => {
     if (location.pathname === '/services' || location.pathname === '/booking') {
       fetchServices()
+      fetchShopSettings()
+    } else if (location.pathname === '/track') {
+      fetchShopSettings()
     }
   }, [location.pathname])
 
@@ -139,7 +181,7 @@ function App() {
     <div className="page" dir="rtl">
       <header className="header">
         <button type="button" className="secondary-btn logo-btn" onClick={handleLogoClick}>
-          پیرایش عارف
+          {shopSettings.shop_name}
         </button>
       </header>
 
@@ -159,6 +201,7 @@ function App() {
             element={
               <TrackAppointmentPage
                 customer={loggedInCustomer}
+                cancelDeadlineHours={shopSettings.cancel_deadline_hours}
                 onBack={() => navigate(loggedInCustomer ? '/services' : '/')}
               />
             }
@@ -203,6 +246,7 @@ function App() {
               <BookingPage
                 customer={loggedInCustomer}
                 services={services}
+                cancelDeadlineHours={shopSettings.cancel_deadline_hours}
                 onBack={() => navigate('/services')}
               />
             }
@@ -227,6 +271,7 @@ function App() {
                   onLogout={handleAdminLogout}
                   onBack={goToRoleSelect}
                   onServicesChanged={fetchServices}
+                  onSettingsChanged={handleSettingsChanged}
                 />
               ) : (
                 <Navigate to="/owner/login" replace />

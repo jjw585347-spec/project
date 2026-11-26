@@ -15,19 +15,6 @@ export function toEnglishDigits(val) {
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
 }
 
-// ساخت لیست ساعت‌های شروع پایه در بازه کاری پیش‌فرض از ۱۰:۰۰ تا ۱۹:۳۰ (پایان کار ۲۰:۰۰ طبق R6)
-export function generateTimeSlots() {
-  const slots = []
-  for (let hour = 10; hour < 20; hour++) {
-    const h = String(hour).padStart(2, '0')
-    slots.push(`${h}:00`)
-    slots.push(`${h}:30`)
-  }
-  return slots
-}
-
-export const TIME_SLOTS = generateTimeSlots()
-
 // تبدیل رشته HH:MM به دقیقه از ابتدای روز
 export function timeToMinutes(timeStr) {
   if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) {

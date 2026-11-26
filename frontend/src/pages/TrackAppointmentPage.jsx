@@ -15,7 +15,7 @@ function loadTrackingPrefill() {
   }
 }
 
-export default function TrackAppointmentPage({ customer, onBack }) {
+export default function TrackAppointmentPage({ customer, cancelDeadlineHours, onBack }) {
   const navigate = useNavigate()
   const [prefill] = useState(loadTrackingPrefill)
 
@@ -142,16 +142,17 @@ export default function TrackAppointmentPage({ customer, onBack }) {
   }, [appointment])
 
   const totalDuration = useMemo(() => {
-    if (!appointment) return 30
-    return Number(appointment.total_duration) || Number(appointment.service?.duration) || 30
+    if (!appointment) return 0
+    return Number(appointment.total_duration) || Number(appointment.service?.duration) || 0
   }, [appointment])
 
   const isCancelled = appointment?.status === 'cancelled'
   const canCancel = Boolean(appointment?.can_customer_cancel) && !isCancelled
-  const deadlineHours = Number(appointment?.cancel_deadline_hours) || 2
+  const deadlineHours =
+    Number(appointment?.cancel_deadline_hours) || Number(cancelDeadlineHours) || null
   const cancelBlockReason =
     appointment?.cancel_block_reason ||
-    (!canCancel && !isCancelled
+    (!canCancel && !isCancelled && deadlineHours
       ? `امکان لغو نوبت فقط تا ${toPersianDigits(deadlineHours)} ساعت قبل از زمان نوبت وجود دارد و مهلت لغو این نوبت به پایان رسیده است.`
       : '')
 
@@ -297,7 +298,7 @@ export default function TrackAppointmentPage({ customer, onBack }) {
               </p>
             )}
 
-            {canCancel && (
+            {canCancel && deadlineHours && (
               <p className="cancel-deadline-hint">
                 شما تا {toPersianDigits(deadlineHours)} ساعت قبل از زمان شروع نوبت امکان لغو آنلاین این نوبت را دارید.
               </p>

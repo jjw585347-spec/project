@@ -7,7 +7,6 @@ import { formatGregorianToJalaliDisplay, getTodayIsoDate } from '../utils/jalali
 import {
   formatPrice,
   minutesToTime,
-  TIME_SLOTS,
   timeToMinutes,
   toPersianDigits,
 } from '../utils/persian'
@@ -43,7 +42,7 @@ function normalizePhoneDigits(raw) {
     .trim()
 }
 
-export default function BookingPage({ customer, services, onBack }) {
+export default function BookingPage({ customer, services, cancelDeadlineHours, onBack }) {
   const navigate = useNavigate()
   const [stored] = useState(loadStoredBookingState)
 
@@ -83,9 +82,9 @@ export default function BookingPage({ customer, services, onBack }) {
 
   // وضعیت برنامه کاری، مرخصی‌ها و بازه‌های رزروشده در روز انتخابی
   const [daySchedule, setDaySchedule] = useState({
-    startTime: '10:00',
-    endTime: '20:00',
-    workingSlots: TIME_SLOTS,
+    startTime: '',
+    endTime: '',
+    workingSlots: [],
     bookedIntervals: [],
     hourlyLeaves: [],
     isClosed: false,
@@ -187,9 +186,9 @@ export default function BookingPage({ customer, services, onBack }) {
   useEffect(() => {
     if (!appointmentDate) {
       setDaySchedule({
-        startTime: '10:00',
-        endTime: '20:00',
-        workingSlots: TIME_SLOTS,
+        startTime: '',
+        endTime: '',
+        workingSlots: [],
         bookedIntervals: [],
         hourlyLeaves: [],
         isClosed: false,
@@ -203,31 +202,17 @@ export default function BookingPage({ customer, services, onBack }) {
       `/api/appointments/booked-slots?date=${encodeURIComponent(appointmentDate)}${durationParam}`
     )
       .then((data) => {
-        const dayWorkingSlots =
-          Array.isArray(data.working_slots) && data.working_slots.length > 0
-            ? data.working_slots
-            : TIME_SLOTS
+        const dayWorkingSlots = Array.isArray(data.working_slots) ? data.working_slots : []
         const intervals = Array.isArray(data.booked_intervals)
           ? data.booked_intervals
-          : Array.isArray(data.booked_slots)
-            ? data.booked_slots.map((slot) => ({
-                start_time: slot,
-                end_time: minutesToTime(timeToMinutes(slot) + 30),
-                duration: 30,
-              }))
-            : []
+          : []
         const leaves = Array.isArray(data.hourly_leaves)
           ? data.hourly_leaves
-          : Array.isArray(data.leave_slots)
-            ? data.leave_slots.map((slot) => ({
-                start_time: slot,
-                end_time: minutesToTime(timeToMinutes(slot) + 30),
-              }))
-            : []
+          : []
 
         setDaySchedule({
-          startTime: data.start_time || '10:00',
-          endTime: data.end_time || '20:00',
+          startTime: data.start_time || '',
+          endTime: data.end_time || '',
           workingSlots: dayWorkingSlots,
           bookedIntervals: intervals,
           hourlyLeaves: leaves,
@@ -237,9 +222,9 @@ export default function BookingPage({ customer, services, onBack }) {
       })
       .catch(() => {
         setDaySchedule({
-          startTime: '10:00',
-          endTime: '20:00',
-          workingSlots: TIME_SLOTS,
+          startTime: '',
+          endTime: '',
+          workingSlots: [],
           bookedIntervals: [],
           hourlyLeaves: [],
           isClosed: false,
@@ -458,7 +443,7 @@ export default function BookingPage({ customer, services, onBack }) {
       const created = data.appointment
       setSavedAppointment(created)
 
-      const bookedDur = Number(created?.total_duration) || totalDuration || 30
+      const bookedDur = Number(created?.total_duration) || totalDuration
       const startMin = timeToMinutes(appointmentTime)
       setDaySchedule((prev) => ({
         ...prev,
@@ -562,7 +547,13 @@ export default function BookingPage({ customer, services, onBack }) {
                 {toPersianDigits(savedAppointment.tracking_code)}
               </strong>
               <p className="tracking-code-hint">
-                این کد را نگه دارید؛ برای مشاهده یا لغو نوبت (تا ۲ ساعت قبل از نوبت) به این کد و شماره موبایل نیاز دارید.
+                این کد را نگه دارید؛ برای مشاهده یا لغو نوبت
+                {savedAppointment.cancel_deadline_hours || cancelDeadlineHours
+                  ? ` (تا ${toPersianDigits(
+                      savedAppointment.cancel_deadline_hours || cancelDeadlineHours
+                    )} ساعت قبل از نوبت)`
+                  : ''}{' '}
+                به این کد و شماره موبایل نیاز دارید.
               </p>
             </div>
           )}
