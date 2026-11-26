@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyState, ErrorState, LoadingSkeleton, TruncatedText } from '../ui'
 import { apiRequest } from '../utils/api'
 import { formatGregorianToJalaliDisplay, getTodayIsoDate } from '../utils/jalali'
 import { toPersianDigits } from '../utils/persian'
@@ -308,7 +309,7 @@ export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
         </div>
       )}
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorState message={error} onRetry={loadSchedule} />}
       {successMessage && <p className="admin-feedback-success">{successMessage}</p>}
 
       {/* کادر هشدار تداخل با نوبت‌های قبلی (بدون لغو خودکار نوبت‌ها) */}
@@ -320,11 +321,13 @@ export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
             <div className="schedule-conflict-list">
               {warningInfo.appointments.map((appt) => (
                 <div key={appt.id} className="schedule-conflict-item">
-                  <strong>{appt.customer_name}</strong>
+                  <TruncatedText as="strong" text={appt.customer_name} />
                   <span>موبایل: {toPersianDigits(appt.customer_phone)}</span>
                   <span>تاریخ: {formatGregorianToJalaliDisplay(appt.appointment_date)}</span>
                   <span>ساعت: {toPersianDigits(appt.appointment_time)}</span>
-                  {appt.service_name && <span>خدمت: {appt.service_name}</span>}
+                  {appt.service_name && (
+                    <TruncatedText as="span" text={`خدمت: ${appt.service_name}`} />
+                  )}
                 </div>
               ))}
             </div>
@@ -337,7 +340,13 @@ export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
         <h2 className="admin-section-title">برنامه هفتگی ساعت کاری</h2>
 
         {loading ? (
-          <p className="owner-empty">در حال بارگذاری برنامه هفتگی...</p>
+          <LoadingSkeleton
+            variant="rows"
+            count={7}
+            label="در حال بارگذاری برنامه هفتگی..."
+          />
+        ) : weeklyHours.length === 0 ? (
+          <EmptyState message="برنامه ساعت کاری هفتگی یافت نشد." />
         ) : (
           <div className="weekly-schedule-list">
             {weeklyHours.map((day) => {
@@ -478,15 +487,27 @@ export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
 
         <div className="schedule-sublist">
           <h3 className="schedule-sublist-title">تاریخ‌های تعطیل ثبت‌شده</h3>
-          {holidays.length === 0 ? (
-            <p className="schedule-sublist-empty">هیچ تاریخ تعطیل خاصی ثبت نشده است.</p>
+          {loading ? (
+            <LoadingSkeleton
+              variant="rows"
+              count={2}
+              label="در حال بارگذاری تاریخ‌های تعطیل..."
+            />
+          ) : holidays.length === 0 ? (
+            <EmptyState message="هیچ تاریخ تعطیل خاصی ثبت نشده است." />
           ) : (
             <div className="schedule-items-grid">
               {holidays.map((h) => (
                 <div key={h.id} className="schedule-item-card">
                   <div className="schedule-item-info">
                     <strong>{formatGregorianToJalaliDisplay(h.off_date)}</strong>
-                    {h.reason && <span className="schedule-item-reason">({h.reason})</span>}
+                    {h.reason && (
+                      <TruncatedText
+                        as="span"
+                        className="schedule-item-reason"
+                        text={`(${h.reason})`}
+                      />
+                    )}
                   </div>
                   <button
                     type="button"
@@ -599,8 +620,14 @@ export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
 
         <div className="schedule-sublist">
           <h3 className="schedule-sublist-title">مرخصی‌های ساعتی ثبت‌شده</h3>
-          {leaves.length === 0 ? (
-            <p className="schedule-sublist-empty">هیچ مرخصی ساعتی ثبت نشده است.</p>
+          {loading ? (
+            <LoadingSkeleton
+              variant="rows"
+              count={2}
+              label="در حال بارگذاری مرخصی‌های ساعتی..."
+            />
+          ) : leaves.length === 0 ? (
+            <EmptyState message="هیچ مرخصی ساعتی ثبت نشده است." />
           ) : (
             <div className="schedule-items-grid">
               {leaves.map((l) => (
@@ -610,7 +637,13 @@ export default function AdminScheduleSection({ adminToken, onUnauthorized }) {
                     <span className="time-badge">
                       از {toPersianDigits(l.start_time)} تا {toPersianDigits(l.end_time)}
                     </span>
-                    {l.reason && <span className="schedule-item-reason">({l.reason})</span>}
+                    {l.reason && (
+                      <TruncatedText
+                        as="span"
+                        className="schedule-item-reason"
+                        text={`(${l.reason})`}
+                      />
+                    )}
                   </div>
                   <button
                     type="button"

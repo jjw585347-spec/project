@@ -1,3 +1,4 @@
+import { EmptyState, ErrorState, LoadingSkeleton } from '../ui'
 import { minutesToTime, timeToMinutes, toPersianDigits } from '../utils/persian'
 
 /**
@@ -15,38 +16,51 @@ export default function TimeSlotPicker({
   hasSelectedServices = true,
   isDayClosed = false,
   closeReason = '',
+  loading = false,
+  error = '',
+  onRetry,
 }) {
   if (!hasSelectedServices) {
     return (
-      <div className="slot-hint-notice" role="status">
-        ابتدا حداقل یک خدمت را از لیست بالا انتخاب کنید تا زمان‌های قابل رزرو محاسبه شوند.
-      </div>
+      <EmptyState message="ابتدا حداقل یک خدمت را از لیست بالا انتخاب کنید تا زمان‌های قابل رزرو محاسبه شوند." />
     )
   }
 
   if (!hasSelectedDate) {
     return (
-      <div className="slot-hint-notice" role="status">
-        لطفاً ابتدا روز نوبت را از تقویم بالا انتخاب کنید تا زمان‌هایی که خدمات انتخابی شما در آن جا می‌شوند نمایش داده شود.
-      </div>
+      <EmptyState message="لطفاً ابتدا روز نوبت را از تقویم بالا انتخاب کنید تا زمان‌هایی که خدمات انتخابی شما در آن جا می‌شوند نمایش داده شود." />
     )
+  }
+
+  if (loading) {
+    return (
+      <LoadingSkeleton
+        variant="slots"
+        count={8}
+        label="در حال بررسی زمان‌های خالی این روز..."
+      />
+    )
+  }
+
+  if (error) {
+    return <ErrorState message={error} onRetry={onRetry} />
   }
 
   if (isDayClosed) {
     return (
-      <div className="day-closed-notice" role="alert">
-        {toPersianDigits(closeReason || 'آرایشگاه در این روز تعطیل است و امکان ثبت نوبت وجود ندارد.')}
-      </div>
+      <EmptyState
+        message={closeReason || 'آرایشگاه در این روز تعطیل است و امکان ثبت نوبت وجود ندارد.'}
+      />
     )
   }
 
   if (!Array.isArray(fittingSlots) || fittingSlots.length === 0) {
     return (
-      <div className="day-closed-notice" role="alert">
-        {toPersianDigits(
-          `در این روز هیچ بازه زمانی خالی که خدمات انتخابی شما (${totalDuration} دقیقه) کامل در آن جا شود وجود ندارد. لطفاً روز دیگری را انتخاب کنید.`
-        )}
-      </div>
+      <EmptyState
+        message={`در این روز هیچ بازه زمانی خالی که خدمات انتخابی شما (${toPersianDigits(
+          totalDuration
+        )} دقیقه) کامل در آن جا شود وجود ندارد. لطفاً روز دیگری را انتخاب کنید.`}
+      />
     )
   }
 
@@ -54,7 +68,9 @@ export default function TimeSlotPicker({
     <div className="time-slots-grid" role="radiogroup" aria-label="انتخاب ساعت نوبت">
       {fittingSlots.map((slot) => {
         const isSelected = value === slot
-        const endTime = minutesToTime(timeToMinutes(slot) + Math.max(1, Number(totalDuration) || 30))
+        const endTime = minutesToTime(
+          timeToMinutes(slot) + Math.max(1, Number(totalDuration) || 30)
+        )
 
         return (
           <button
@@ -65,9 +81,7 @@ export default function TimeSlotPicker({
             title={toPersianDigits(`انتخاب ساعت ${slot} تا ${endTime} (${totalDuration} دقیقه)`)}
           >
             <span className="time-slot-text">{toPersianDigits(slot)}</span>
-            <span className="time-slot-end-hint">
-              تا {toPersianDigits(endTime)}
-            </span>
+            <span className="time-slot-end-hint">تا {toPersianDigits(endTime)}</span>
           </button>
         )
       })}

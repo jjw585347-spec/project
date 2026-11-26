@@ -1,7 +1,16 @@
 import { useNavigate } from 'react-router-dom'
+import { EmptyState, ErrorState, LoadingSkeleton, TruncatedText } from '../ui'
 import { formatPrice, toPersianDigits } from '../utils/persian'
 
-export default function HomePage({ services, error, customer, onOpenBooking, onBack }) {
+export default function HomePage({
+  services,
+  loading = false,
+  error,
+  onRetry,
+  customer,
+  onOpenBooking,
+  onBack,
+}) {
   const navigate = useNavigate()
 
   function handleBookingClick() {
@@ -26,19 +35,22 @@ export default function HomePage({ services, error, customer, onOpenBooking, onB
 
       {customer && (
         <p className="subtitle">
-          خوش آمدید، <strong>{customer.name}</strong> ({toPersianDigits(customer.phone)})
+          خوش آمدید، <TruncatedText as="strong" text={customer.name} /> (
+          {toPersianDigits(customer.phone)})
         </p>
       )}
 
-      {error && <p className="error">{error}</p>}
-
-      {!error && services.length === 0 ? (
-        <p className="owner-empty">در حال حاضر هیچ خدمت فعالی برای نمایش وجود ندارد.</p>
+      {loading ? (
+        <LoadingSkeleton variant="cards" count={4} label="در حال بارگذاری خدمات آرایشگاه..." />
+      ) : error ? (
+        <ErrorState message={error} onRetry={onRetry} />
+      ) : services.length === 0 ? (
+        <EmptyState message="در حال حاضر هیچ خدمت فعالی برای نمایش وجود ندارد." />
       ) : (
         <div className="cards">
           {services.map((service) => (
             <div className="card" key={service.id}>
-              <h2 className="card-name">{service.name}</h2>
+              <TruncatedText as="h2" className="card-name" lines={2} text={service.name} />
               <div className="card-row">
                 <span>قیمت</span>
                 <strong>{formatPrice(service.price)} تومان</strong>

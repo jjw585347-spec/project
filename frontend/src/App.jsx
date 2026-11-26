@@ -31,6 +31,7 @@ function loadStoredAdminToken() {
 
 function App() {
   const [services, setServices] = useState([])
+  const [servicesLoading, setServicesLoading] = useState(true)
   const [servicesError, setServicesError] = useState('')
   const [shopSettings, setShopSettings] = useState({
     shop_name: '',
@@ -105,6 +106,7 @@ function App() {
 
   // دریافت لیست خدمات از بک‌اند
   function fetchServices() {
+    setServicesLoading(true)
     setServicesError('')
     apiRequest('/api/services')
       .then((data) => {
@@ -112,6 +114,9 @@ function App() {
       })
       .catch((err) => {
         setServicesError(err.message || 'خطا در دریافت لیست خدمات')
+      })
+      .finally(() => {
+        setServicesLoading(false)
       })
   }
 
@@ -233,7 +238,9 @@ function App() {
             element={
               <HomePage
                 services={services}
+                loading={servicesLoading}
                 error={servicesError}
+                onRetry={fetchServices}
                 customer={loggedInCustomer}
                 onOpenBooking={handleOpenBooking}
                 onBack={goToRoleSelect}
@@ -246,6 +253,9 @@ function App() {
               <BookingPage
                 customer={loggedInCustomer}
                 services={services}
+                servicesLoading={servicesLoading}
+                servicesError={servicesError}
+                onRetryServices={fetchServices}
                 cancelDeadlineHours={shopSettings.cancel_deadline_hours}
                 onBack={() => navigate('/services')}
               />

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import JalaliDatePicker from '../components/JalaliDatePicker'
 import TimeSlotPicker from '../components/TimeSlotPicker'
+import { EmptyState, ErrorState, LoadingSkeleton, TruncatedText } from '../ui'
 import { apiRequest } from '../utils/api'
 import { formatGregorianToJalaliDisplay, getTodayIsoDate } from '../utils/jalali'
 import {
@@ -42,7 +43,15 @@ function normalizePhoneDigits(raw) {
     .trim()
 }
 
-export default function BookingPage({ customer, services, cancelDeadlineHours, onBack }) {
+export default function BookingPage({
+  customer,
+  services,
+  servicesLoading = false,
+  servicesError = '',
+  onRetryServices,
+  cancelDeadlineHours,
+  onBack,
+}) {
   const navigate = useNavigate()
   const [stored] = useState(loadStoredBookingState)
 
@@ -90,6 +99,8 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
     isClosed: false,
     closeReason: '',
   })
+  const [scheduleLoading, setScheduleLoading] = useState(false)
+  const [scheduleError, setScheduleError] = useState('')
 
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState('')
@@ -183,8 +194,10 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
   ])
 
   // دریافت برنامه کاری، تعطیلی، مرخصی‌ها و بازه‌های رزروشده روز انتخابی از بک‌اند
-  useEffect(() => {
+  const loadDaySchedule = useCallback(() => {
     if (!appointmentDate) {
+      setScheduleError('')
+      setScheduleLoading(false)
       setDaySchedule({
         startTime: '',
         endTime: '',
@@ -197,6 +210,8 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
       return
     }
 
+    setScheduleLoading(true)
+    setScheduleError('')
     const durationParam = totalDuration > 0 ? `&duration=${encodeURIComponent(totalDuration)}` : ''
     apiRequest(
       `/api/appointments/booked-slots?date=${encodeURIComponent(appointmentDate)}${durationParam}`
@@ -220,18 +235,19 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
           closeReason: data.close_reason || '',
         })
       })
-      .catch(() => {
-        setDaySchedule({
-          startTime: '',
-          endTime: '',
-          workingSlots: [],
-          bookedIntervals: [],
-          hourlyLeaves: [],
-          isClosed: false,
-          closeReason: '',
-        })
+      .catch((err) => {
+        setScheduleError(
+          err.message || 'خطا در دریافت زمان‌های خالی این روز. لطفاً دوباره تلاش کنید.'
+        )
+      })
+      .finally(() => {
+        setScheduleLoading(false)
       })
   }, [appointmentDate, totalDuration])
+
+  useEffect(() => {
+    loadDaySchedule()
+  }, [loadDaySchedule])
 
   // محاسبه دقیق فقط زمان‌هایی که مجموع خدمات انتخاب‌شده کامل در آن جا می‌شوند (R3, R5, R6, R7, R8)
   const fittingSlots = useMemo(() => {
@@ -560,7 +576,7 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
 
           <div className="summary-row">
             <span>خدمت‌های انتخاب‌شده:</span>
-            <strong>{savedServiceNames}</strong>
+            <TruncatedText as="strong" text={savedServiceNames} />
           </div>
           <div className="summary-row">
             <span>هزینه‌ی کل:</span>
@@ -580,7 +596,7 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
           </div>
           <div className="summary-row">
             <span>نام مشتری:</span>
-            <strong>{savedAppointment.customer_name}</strong>
+            <TruncatedText as="strong" text={savedAppointment.customer_name} />
           </div>
           <div className="summary-row">
             <span>شماره موبایل:</span>
@@ -624,7 +640,7 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
           <div className="live-selection-bar" aria-label="خلاصه انتخاب شما در این لحظه">
             <div className="live-selection-row">
               <span>خدمت‌ها:</span>
-              <strong>{selectedServiceNames}</strong>
+              <TruncatedText as="strong" text={selectedServiceNames} />
             </div>
             <div className="live-selection-metrics">
               <span>
@@ -659,31 +675,48 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
             {currentStep === 1 && (
               <div className="form-group">
                 <label>قدم ۱: انتخاب خدمت‌ها (می‌توانید یک یا چند خدمت انتخاب کنید)</label>
-                <div
-                  className={`service-multi-list ${fieldErrors.service_id ? 'input-invalid' : ''}`}
-                  role="group"
-                  aria-label="انتخاب خدمات آرایشگاه"
-                >
-                  {services.map((service) => {
-                    const idStr = String(service.id)
-                    const isChecked = selectedServiceIds.includes(idStr)
-                    return (
-                      <button
-                        key={service.id}
-                        type="button"
-                        aria-pressed={isChecked}
-                        onClick={() => handleToggleService(idStr)}
-                        className={`time-slot-card service-slot-card ${isChecked ? 'selected' : ''}`}
-                      >
-                        <span className="time-slot-text">{service.name}</span>
-                        <span className="time-slot-end-hint">
-                          {formatPrice(service.price)} تومان —{' '}
-                          {toPersianDigits(service.duration)} دقیقه
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
+
+                {servicesLoading ? (
+                  <LoadingSkeleton
+                    variant="slots"
+                    count={4}
+                    label="در حال بارگذاری لیست خدمات..."
+                  />
+                ) : servicesError ? (
+                  <ErrorState message={servicesError} onRetry={onRetryServices} />
+                ) : services.length === 0 ? (
+                  <EmptyState message="در حال حاضر هیچ خدمت فعالی برای رزرو ثبت نشده است." />
+                ) : (
+                  <div
+                    className={`service-multi-list ${fieldErrors.service_id ? 'input-invalid' : ''}`}
+                    role="group"
+                    aria-label="انتخاب خدمات آرایشگاه"
+                  >
+                    {services.map((service) => {
+                      const idStr = String(service.id)
+                      const isChecked = selectedServiceIds.includes(idStr)
+                      return (
+                        <button
+                          key={service.id}
+                          type="button"
+                          aria-pressed={isChecked}
+                          onClick={() => handleToggleService(idStr)}
+                          className={`time-slot-card service-slot-card ${isChecked ? 'selected' : ''}`}
+                        >
+                          <TruncatedText
+                            as="span"
+                            className="time-slot-text"
+                            text={service.name}
+                          />
+                          <span className="time-slot-end-hint">
+                            {formatPrice(service.price)} تومان —{' '}
+                            {toPersianDigits(service.duration)} دقیقه
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
 
                 {fieldErrors.service_id && (
                   <p className="field-error" role="alert">
@@ -692,7 +725,12 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
                 )}
 
                 <div className="wizard-actions">
-                  <button type="button" className="primary-btn" onClick={handleNextStep}>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={handleNextStep}
+                    disabled={servicesLoading || Boolean(servicesError) || services.length === 0}
+                  >
                     ادامه به انتخاب روز و زمان
                   </button>
                 </div>
@@ -734,6 +772,9 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
                     hasSelectedServices={selectedServices.length > 0}
                     isDayClosed={daySchedule.isClosed}
                     closeReason={daySchedule.closeReason}
+                    loading={scheduleLoading}
+                    error={scheduleError}
+                    onRetry={loadDaySchedule}
                   />
                   {fieldErrors.appointment_time && (
                     <p className="field-error" role="alert">
@@ -825,7 +866,7 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
                 <div className="confirm-details-list">
                   <div className="summary-row confirm-detail-row">
                     <span>خدمت‌های انتخاب‌شده:</span>
-                    <strong>{selectedServiceNames}</strong>
+                    <TruncatedText as="strong" text={selectedServiceNames} />
                   </div>
                   <div className="summary-row confirm-detail-row">
                     <span>هزینه‌ی کل:</span>
@@ -848,7 +889,7 @@ export default function BookingPage({ customer, services, cancelDeadlineHours, o
                   </div>
                   <div className="summary-row confirm-detail-row">
                     <span>نام و نام خانوادگی:</span>
-                    <strong>{customerName.trim()}</strong>
+                    <TruncatedText as="strong" text={customerName.trim()} />
                   </div>
                   <div className="summary-row confirm-detail-row">
                     <span>شماره موبایل:</span>

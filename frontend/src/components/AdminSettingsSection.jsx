@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ErrorState, LoadingSkeleton } from '../ui'
 import { apiRequest } from '../utils/api'
 import { toEnglishDigits, toPersianDigits } from '../utils/persian'
 import AdminScheduleSection from './AdminScheduleSection'
@@ -180,7 +181,11 @@ export default function AdminSettingsSection({
         <h2 className="admin-section-title">۱. نام آرایشگاه و مهلت لغو نوبت</h2>
 
         {loadingGeneral ? (
-          <p className="owner-empty">در حال بارگذاری تنظیمات...</p>
+          <LoadingSkeleton
+            variant="rows"
+            count={2}
+            label="در حال بارگذاری تنظیمات..."
+          />
         ) : (
           <div className="admin-schedule-two-cols">
             <div className="form-group">
@@ -228,7 +233,9 @@ export default function AdminSettingsSection({
           </div>
         )}
 
-        {generalErrorMsg && <p className="error">{generalErrorMsg}</p>}
+        {generalErrorMsg && (
+          <ErrorState message={generalErrorMsg} onRetry={loadSettings} />
+        )}
         {generalSuccessMsg && (
           <p className="admin-feedback-success" role="status">
             {toPersianDigits(generalSuccessMsg)}

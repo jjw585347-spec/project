@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { EmptyState, ErrorState, LoadingSkeleton, TruncatedText } from '../ui'
 import { apiRequest } from '../utils/api'
 import { formatGregorianToJalaliDisplay } from '../utils/jalali'
 import { formatPrice, toPersianDigits } from '../utils/persian'
@@ -31,6 +32,7 @@ export default function TrackAppointmentPage({ customer, cancelDeadlineHours, on
   const [loading, setLoading] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [appointment, setAppointment] = useState(null)
+  const [hasSearched, setHasSearched] = useState(false)
 
   function handleBackClick() {
     if (onBack) {
@@ -55,6 +57,7 @@ export default function TrackAppointmentPage({ customer, cancelDeadlineHours, on
     setCancelError('')
     setFieldErrors({})
     setLoading(true)
+    setHasSearched(true)
 
     try {
       const data = await apiRequest('/api/appointments/track', {
@@ -208,12 +211,6 @@ export default function TrackAppointmentPage({ customer, cancelDeadlineHours, on
           )}
         </div>
 
-        {lookupError && (
-          <p className="error" role="alert">
-            {lookupError}
-          </p>
-        )}
-
         <div className="form-actions">
           <button type="submit" className="primary-btn" disabled={loading}>
             {loading ? 'در حال جستجو...' : 'مشاهده نوبت'}
@@ -221,7 +218,18 @@ export default function TrackAppointmentPage({ customer, cancelDeadlineHours, on
         </div>
       </form>
 
-      {appointment && (
+      {loading ? (
+        <LoadingSkeleton
+          variant="rows"
+          count={4}
+          label="در حال جستجوی نوبت شما..."
+        />
+      ) : lookupError ? (
+        <ErrorState
+          message={lookupError}
+          onRetry={() => lookupAppointment(customerPhone, trackingCode)}
+        />
+      ) : appointment ? (
         <div className="tracked-appointment-card" role="region" aria-label="اطلاعات نوبت پیگیری‌شده">
           <div className="tracked-header">
             <h2 className="tracked-title">مشخصات نوبت شما</h2>
@@ -238,7 +246,7 @@ export default function TrackAppointmentPage({ customer, cancelDeadlineHours, on
           </div>
           <div className="summary-row confirm-detail-row">
             <span>نام مشتری:</span>
-            <strong>{appointment.customer_name}</strong>
+            <TruncatedText as="strong" text={appointment.customer_name} />
           </div>
           <div className="summary-row confirm-detail-row">
             <span>شماره موبایل:</span>
@@ -246,7 +254,7 @@ export default function TrackAppointmentPage({ customer, cancelDeadlineHours, on
           </div>
           <div className="summary-row confirm-detail-row">
             <span>خدمت‌ها:</span>
-            <strong>{serviceNames}</strong>
+            <TruncatedText as="strong" text={serviceNames} />
           </div>
           <div className="summary-row confirm-detail-row">
             <span>هزینه‌ی کل:</span>
@@ -272,9 +280,7 @@ export default function TrackAppointmentPage({ customer, cancelDeadlineHours, on
           )}
 
           {cancelError && (
-            <p className="error" role="alert">
-              {cancelError}
-            </p>
+            <ErrorState message={cancelError} onRetry={handleCancelAppointment} />
           )}
 
           {/* بخش لغو نوبت توسط مشتری طبق قانون R9 */}
@@ -305,7 +311,9 @@ export default function TrackAppointmentPage({ customer, cancelDeadlineHours, on
             )}
           </div>
         </div>
-      )}
+      ) : !hasSearched ? (
+        <EmptyState message="برای مشاهده یا لغو نوبت، شماره موبایل و کد پیگیری ۶ رقمی خود را در فرم بالا وارد کنید." />
+      ) : null}
 
       <div className="page-bottom-nav booking-bottom-links">
         {customer && (

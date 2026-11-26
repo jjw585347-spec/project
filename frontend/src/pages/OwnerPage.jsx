@@ -4,6 +4,7 @@ import AdminScheduleSection from '../components/AdminScheduleSection'
 import AdminServicesSection from '../components/AdminServicesSection'
 import AdminSettingsSection from '../components/AdminSettingsSection'
 import JalaliDatePicker from '../components/JalaliDatePicker'
+import { EmptyState, ErrorState, LoadingSkeleton, TruncatedText } from '../ui'
 import { apiRequest } from '../utils/api'
 import { formatGregorianToJalaliDisplay, getTodayIsoDate } from '../utils/jalali'
 import { toPersianDigits } from '../utils/persian'
@@ -222,7 +223,9 @@ export default function OwnerPage({
             </div>
           </div>
 
-          {error && <p className="error">{error}</p>}
+          {error && (
+            <ErrorState message={error} onRetry={() => loadAppointments(ownerDate)} />
+          )}
 
           {/* کادر پرسش تایید قبل از لغو نوبت */}
           {confirmTarget && (
@@ -259,15 +262,30 @@ export default function OwnerPage({
             </div>
 
             {loading ? (
-              <p className="owner-empty">در حال بارگذاری نوبت‌ها...</p>
+              <LoadingSkeleton
+                variant="rows"
+                count={4}
+                label="در حال بارگذاری نوبت‌ها..."
+              />
             ) : appointments.length === 0 ? (
-              <p className="owner-empty">
-                برای تاریخ {formatGregorianToJalaliDisplay(ownerDate)} هیچ نوبتی ثبت نشده است.
-              </p>
+              <EmptyState
+                message={
+                  ownerDate === getTodayIsoDate()
+                    ? 'امروز نوبتی ندارید.'
+                    : `برای تاریخ ${formatGregorianToJalaliDisplay(
+                        ownerDate
+                      )} هیچ نوبتی ثبت نشده است.`
+                }
+              />
             ) : (
               <div className="owner-rows">
                 {appointments.map((item) => {
                   const isCancelled = item.status === 'cancelled'
+                  const serviceNames =
+                    Array.isArray(item.services) && item.services.length > 0
+                      ? item.services.map((s) => s.name).join('، ')
+                      : item.service?.name || '-'
+
                   return (
                     <div
                       key={item.id}
@@ -275,7 +293,7 @@ export default function OwnerPage({
                     >
                       <div className="owner-cell owner-cell-name">
                         <span className="mobile-label">نام مشتری:</span>
-                        <strong>{item.customer_name}</strong>
+                        <TruncatedText as="strong" text={item.customer_name} />
                       </div>
                       <div className="owner-cell owner-cell-phone">
                         <span className="mobile-label">شماره موبایل:</span>
@@ -283,11 +301,7 @@ export default function OwnerPage({
                       </div>
                       <div className="owner-cell owner-cell-service">
                         <span className="mobile-label">خدمت:</span>
-                        <span>
-                          {Array.isArray(item.services) && item.services.length > 0
-                            ? item.services.map((s) => s.name).join('، ')
-                            : item.service?.name || '-'}
-                        </span>
+                        <TruncatedText as="span" text={serviceNames} />
                       </div>
                       <div className="owner-cell owner-cell-time">
                         <span className="mobile-label">ساعت:</span>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyState, ErrorState, LoadingSkeleton, TruncatedText } from '../ui'
 import { apiRequest } from '../utils/api'
 import { formatPrice, toPersianDigits } from '../utils/persian'
 
@@ -315,7 +316,7 @@ export default function AdminServicesSection({
         </div>
       </form>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorState message={error} onRetry={loadAdminServices} />}
       {successMessage && <p className="admin-feedback-success">{successMessage}</p>}
 
       <div className="owner-list-card">
@@ -328,9 +329,13 @@ export default function AdminServicesSection({
         </div>
 
         {loading ? (
-          <p className="owner-empty">در حال بارگذاری خدمات...</p>
+          <LoadingSkeleton
+            variant="rows"
+            count={4}
+            label="در حال بارگذاری خدمات..."
+          />
         ) : services.length === 0 ? (
-          <p className="owner-empty">هیچ خدمتی در سیستم ثبت نشده است.</p>
+          <EmptyState message="هیچ خدمتی در سیستم ثبت نشده است." />
         ) : (
           <div className="owner-rows">
             {services.map((service) => {
@@ -347,7 +352,7 @@ export default function AdminServicesSection({
                 >
                   <div className="owner-cell">
                     <span className="mobile-label">نام خدمت:</span>
-                    <strong>{service.name}</strong>
+                    <TruncatedText as="strong" text={service.name} />
                   </div>
 
                   <div className="owner-cell">
